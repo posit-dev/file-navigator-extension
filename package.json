@@ -1,0 +1,59 @@
+{
+  "name": "@assistant/file-navigator",
+  "publisher": "posit",
+  "displayName": "File Navigator",
+  "description": "Directory browser sidebar for navigating the filesystem.",
+  "version": "0.1.0",
+  "license": "SEE LICENSE IN LICENSE",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "file-navigator",
+          "title": "File Navigator",
+          "icon": "images/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "file-navigator": [
+        {
+          "type": "webview",
+          "id": "file-navigator.directoryView",
+          "name": "File Navigator"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsx esbuild.ts --production",
+    "watch": "tsx esbuild.ts --watch",
+    "clean": "rm -rf dist",
+    "check-types": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.client.json",
+    "lint": "oxlint -c ../../oxlint.config.json src"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "@types/vscode-webview": "^1.57.5",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "esbuild": "^0.25.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tsx": "^4.19.4",
+    "typescript": "^6.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/assistant",
+    "directory": "packages/file-navigator"
+  }
+}
