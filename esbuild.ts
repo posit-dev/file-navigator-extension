@@ -1,4 +1,5 @@
 import * as esbuild from "esbuild";
+import tailwindPlugin from "esbuild-plugin-tailwindcss";
 
 import {
 	createBaseConfig,
@@ -31,7 +32,10 @@ async function main() {
 			sourcesContent: true,
 			external: ["vscode-webview"],
 			jsx: "automatic",
-			plugins: [createProblemMatcherPlugin(["src/frontend/main.tsx"], watch)],
+			plugins: [
+				createProblemMatcherPlugin(["src/frontend/main.tsx"], watch),
+				tailwindPlugin(),
+			],
 		}),
 	};
 

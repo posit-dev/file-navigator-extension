@@ -1,4 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { clsx } from "clsx";
+import { Folder, File, CornerUpLeft, RefreshCw, Link } from "lucide-react";
 
 type DirectoryEntry = {
 	name: string;
@@ -88,36 +90,46 @@ export function DirectoryView({
 	}, [selectedIndex]);
 
 	if (loading && entries.length === 0) {
-		return <div className="loading">Loading...</div>;
+		return <div className="p-2 text-center text-muted-foreground">Loading...</div>;
 	}
 
 	return (
 		<div
-			className="directory-view"
+			className="flex-1 overflow-y-auto outline-none"
 			ref={listRef}
 			tabIndex={0}
 			onKeyDown={handleKeyDown}
 		>
-			<div className="toolbar">
-				<button className="refresh-button" onClick={onRefresh} title="Refresh">
-					↻
+			<div className="flex justify-end px-1 py-0.5">
+				<button
+					className="flex items-center justify-center size-6 bg-transparent border-none text-icon-foreground cursor-pointer rounded-sm hover:bg-accent"
+					onClick={onRefresh}
+					title="Refresh"
+				>
+					<RefreshCw className="size-3.5" />
 				</button>
 			</div>
 			{items.length === 0 ? (
-				<div className="empty">Empty directory</div>
+				<div className="p-2 text-center text-muted-foreground">Empty directory</div>
 			) : (
-				<div className="file-list">
+				<div className="flex flex-col">
 					{items.map((item, index) => {
+						const selected = index === selectedIndex;
 						if (item.type === "parent") {
 							return (
 								<div
 									key=".."
-									className={`file-item directory ${index === selectedIndex ? "selected" : ""}`}
+									className={clsx(
+										"flex items-center gap-1.5 px-2 h-[22px] cursor-pointer select-none",
+										selected
+											? "bg-selected text-selected-foreground"
+											: "hover:bg-accent",
+									)}
 									data-index={index}
 									onClick={() => activateItem(item)}
 								>
-									<span className="icon">📁</span>
-									<span className="name">..</span>
+									<CornerUpLeft className="size-4 shrink-0" />
+									<span className="truncate">..</span>
 								</div>
 							);
 						}
@@ -126,15 +138,26 @@ export function DirectoryView({
 						return (
 							<div
 								key={entry.name}
-								className={`file-item ${isDir ? "directory" : "file"} ${index === selectedIndex ? "selected" : ""}`}
+								className={clsx(
+									"flex items-center gap-1.5 px-2 h-[22px] cursor-pointer select-none",
+									selected
+										? "bg-selected text-selected-foreground"
+										: "hover:bg-accent",
+								)}
 								data-index={index}
 								onClick={() => activateItem(item)}
 							>
-								<span className="icon">
-									{isDir ? "📁" : "📄"}
-									{entry.isSymbolicLink && <span className="symlink-badge">↗</span>}
+								<span className="relative shrink-0 flex items-center">
+									{isDir ? (
+										<Folder className="size-4" />
+									) : (
+										<File className="size-4" />
+									)}
+									{entry.isSymbolicLink && (
+										<Link className="size-2.5 absolute -bottom-0.5 -right-1" />
+									)}
 								</span>
-								<span className="name">{entry.name}</span>
+								<span className="truncate">{entry.name}</span>
 							</div>
 						);
 					})}

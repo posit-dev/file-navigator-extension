@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { DirectoryView } from "./DirectoryView";
+
 import { Breadcrumb } from "./Breadcrumb";
+import { DirectoryView } from "./DirectoryView";
 import { FilterInput } from "./FilterInput";
 
 type DirectoryEntry = {
@@ -98,10 +99,10 @@ export function App() {
 		: entries;
 
 	return (
-		<div className="app">
+		<div className="flex h-screen flex-col py-1">
 			<FilterInput value={filter} onChange={setFilter} />
 			<Breadcrumb segments={breadcrumbs} onNavigate={navigate} />
-			{error && <div className="error">{error}</div>}
+			{error && <div className="px-2 py-1 text-[0.9em] text-error-foreground">{error}</div>}
 			<DirectoryView
 				entries={filteredEntries}
 				parentUri={parentUri}

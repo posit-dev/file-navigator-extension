@@ -1,173 +1,51 @@
+@import "tailwindcss";
+
 :root {
-	--font-family: var(--vscode-font-family, system-ui, sans-serif);
-	--font-size: var(--vscode-font-size, 13px);
-	--bg: var(--vscode-sideBar-background, #1e1e1e);
-	--fg: var(--vscode-sideBar-foreground, #cccccc);
-	--hover-bg: var(--vscode-list-hoverBackground, #2a2d2e);
-	--selected-bg: var(--vscode-list-activeSelectionBackground, #094771);
-	--selected-fg: var(--vscode-list-activeSelectionForeground, #ffffff);
-	--input-bg: var(--vscode-input-background, #3c3c3c);
-	--input-fg: var(--vscode-input-foreground, #cccccc);
+	--background: var(--vscode-sideBar-background, #1e1e1e);
+	--foreground: var(--vscode-sideBar-foreground, #cccccc);
+	--muted-foreground: color-mix(
+		in srgb,
+		var(--vscode-foreground, #cccccc) 60%,
+		var(--vscode-sideBar-background, #1e1e1e)
+	);
+	--accent: var(--vscode-list-hoverBackground, #2a2d2e);
+	--accent-foreground: var(--vscode-list-hoverForeground, #cccccc);
+	--selected: var(--vscode-list-activeSelectionBackground, #094771);
+	--selected-foreground: var(--vscode-list-activeSelectionForeground, #ffffff);
+	--input: var(--vscode-input-background, #3c3c3c);
+	--input-foreground: var(--vscode-input-foreground, #cccccc);
 	--input-border: var(--vscode-input-border, #3c3c3c);
 	--focus-border: var(--vscode-focusBorder, #007fd4);
-	--separator: var(--vscode-sideBarSectionHeader-border, #444444);
-	--error-fg: var(--vscode-errorForeground, #f48771);
-	--button-fg: var(--vscode-icon-foreground, #c5c5c5);
+	--border: var(--vscode-sideBarSectionHeader-border, #444444);
+	--error-foreground: var(--vscode-errorForeground, #f48771);
+	--icon-foreground: var(--vscode-icon-foreground, #c5c5c5);
+}
+
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-selected: var(--selected);
+	--color-selected-foreground: var(--selected-foreground);
+	--color-input: var(--input);
+	--color-input-foreground: var(--input-foreground);
+	--color-input-border: var(--input-border);
+	--color-focus-border: var(--focus-border);
+	--color-border: var(--border);
+	--color-error-foreground: var(--error-foreground);
+	--color-icon-foreground: var(--icon-foreground);
+	--font-sans:
+		var(--vscode-font-family, system-ui), -apple-system, BlinkMacSystemFont,
+		"Segoe UI", sans-serif;
 }
 
 * {
-	margin: 0;
-	padding: 0;
 	box-sizing: border-box;
 }
 
 body {
-	font-family: var(--font-family);
-	font-size: var(--font-size);
-	background: var(--bg);
-	color: var(--fg);
-	overflow: hidden;
-}
-
-.app {
-	display: flex;
-	flex-direction: column;
-	height: 100vh;
-}
-
-.filter-input-container {
-	padding: 4px 8px;
-}
-
-.filter-input {
-	width: 100%;
-	padding: 3px 6px;
-	background: var(--input-bg);
-	color: var(--input-fg);
-	border: 1px solid var(--input-border);
-	border-radius: 2px;
-	font-family: var(--font-family);
-	font-size: var(--font-size);
-	outline: none;
-}
-
-.filter-input:focus {
-	border-color: var(--focus-border);
-}
-
-.breadcrumb {
-	padding: 2px 8px 4px;
-	font-size: 0.9em;
-	white-space: nowrap;
-	overflow-x: auto;
-	scrollbar-width: none;
-	border-bottom: 1px solid var(--separator);
-}
-
-.breadcrumb::-webkit-scrollbar {
-	display: none;
-}
-
-.breadcrumb-separator {
-	color: var(--fg);
-	opacity: 0.6;
-}
-
-.breadcrumb-segment {
-	background: none;
-	border: none;
-	color: var(--fg);
-	cursor: pointer;
-	padding: 1px 2px;
-	font-family: var(--font-family);
-	font-size: inherit;
-	border-radius: 2px;
-}
-
-.breadcrumb-segment:hover {
-	background: var(--hover-bg);
-}
-
-.error {
-	padding: 4px 8px;
-	color: var(--error-fg);
-	font-size: 0.9em;
-}
-
-.directory-view {
-	flex: 1;
-	overflow-y: auto;
-	outline: none;
-}
-
-.toolbar {
-	display: flex;
-	justify-content: flex-end;
-	padding: 2px 4px;
-}
-
-.refresh-button {
-	background: none;
-	border: none;
-	color: var(--button-fg);
-	cursor: pointer;
-	font-size: 16px;
-	padding: 2px 4px;
-	border-radius: 3px;
-	line-height: 1;
-}
-
-.refresh-button:hover {
-	background: var(--hover-bg);
-}
-
-.loading,
-.empty {
-	padding: 8px;
-	opacity: 0.7;
-	text-align: center;
-}
-
-.file-list {
-	display: flex;
-	flex-direction: column;
-}
-
-.file-item {
-	display: flex;
-	align-items: center;
-	padding: 2px 8px;
-	cursor: pointer;
-	user-select: none;
-	gap: 6px;
-	line-height: 22px;
-}
-
-.file-item:hover {
-	background: var(--hover-bg);
-}
-
-.file-item.selected {
-	background: var(--selected-bg);
-	color: var(--selected-fg);
-}
-
-.icon {
-	flex-shrink: 0;
-	position: relative;
-	display: inline-flex;
-	align-items: center;
-}
-
-.symlink-badge {
-	font-size: 0.7em;
-	position: absolute;
-	bottom: -2px;
-	right: -4px;
-}
-
-.name {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	@apply bg-background text-foreground font-sans overflow-hidden;
+	font-size: var(--vscode-font-size, 13px);
 }
