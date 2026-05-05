@@ -3,12 +3,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Breadcrumb } from "./Breadcrumb";
 import { DirectoryView } from "./DirectoryView";
 import { FilterInput } from "./FilterInput";
-import type { DirectoryEntry, SortColumn, SortDirection } from "./types";
-
-type BreadcrumbSegment = {
-	label: string;
-	uri: string;
-};
+import type { BreadcrumbSegment, DirectoryEntry, SortColumn, SortDirection } from "./types";
 
 declare function acquireVsCodeApi(): {
 	postMessage(msg: unknown): void;
@@ -55,6 +50,8 @@ export function App() {
 	const [sortColumn, setSortColumn] = useState<SortColumn>("name");
 	const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 	const requestIdRef = useRef(0);
+	const currentUriRef = useRef(currentUri);
+	currentUriRef.current = currentUri;
 
 	const readDirectory = useCallback((uri: string) => {
 		const id = ++requestIdRef.current;
@@ -114,8 +111,8 @@ export function App() {
 					setLoading(false);
 					break;
 				case "directoryChanged":
-					if (msg.uri === currentUri) {
-						readDirectory(currentUri);
+					if (msg.uri === currentUriRef.current) {
+						readDirectory(currentUriRef.current);
 					}
 					break;
 			}

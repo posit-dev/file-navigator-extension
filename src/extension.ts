@@ -2,19 +2,9 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as os from "os";
 
-type DirectoryEntry = {
-	name: string;
-	uri: string;
-	kind: "file" | "directory" | "unknown";
-	isSymbolicLink: boolean;
-	size: number | null;
-	mtime: number | null;
-};
+import type { DirectoryEntry, BreadcrumbSegment } from "./protocol";
 
-type BreadcrumbSegment = {
-	label: string;
-	uri: string;
-};
+const STAT_CONCURRENCY = 20;
 
 type IncomingMessage =
 	| { type: "getInitialDirectory" }
@@ -47,7 +37,6 @@ function computeBreadcrumbs(uri: vscode.Uri): BreadcrumbSegment[] {
 	const segments: BreadcrumbSegment[] = [];
 	let current = uri;
 
-	// Walk up from the current URI to the root
 	while (true) {
 		const parentPath = path.posix.dirname(current.path);
 		const label = path.posix.basename(current.path) || "/";
@@ -78,19 +67,42 @@ function fileTypeToKind(
 	return { kind, isSymbolicLink };
 }
 
-function sortEntries(entries: DirectoryEntry[]): DirectoryEntry[] {
-	return entries.sort((a, b) => {
-		if (a.kind === "directory" && b.kind !== "directory") return -1;
-		if (a.kind !== "directory" && b.kind === "directory") return 1;
-		return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-	});
+async function statEntries(
+	rawEntries: [string, vscode.FileType][],
+	parentUri: vscode.Uri,
+): Promise<DirectoryEntry[]> {
+	const entries: DirectoryEntry[] = [];
+	let i = 0;
+
+	async function next(): Promise<void> {
+		while (i < rawEntries.length) {
+			const idx = i++;
+			const [name, fileType] = rawEntries[idx];
+			const { kind, isSymbolicLink } = fileTypeToKind(fileType);
+			const entryUri = vscode.Uri.joinPath(parentUri, name);
+			let size: number | null = null;
+			let mtime: number | null = null;
+			try {
+				const stat = await vscode.workspace.fs.stat(entryUri);
+				size = stat.size;
+				mtime = stat.mtime;
+			} catch {
+				// Permission denied, broken symlink, etc.
+			}
+			entries[idx] = { name, uri: entryUri.toString(), kind, isSymbolicLink, size, mtime };
+		}
+	}
+
+	const workers = Array.from({ length: Math.min(STAT_CONCURRENCY, rawEntries.length) }, () => next());
+	await Promise.all(workers);
+	return entries;
 }
 
 class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 	private currentUri: vscode.Uri | undefined;
+	private latestRequestId = -1;
 	private watcher: vscode.FileSystemWatcher | undefined;
 	private debounceTimer: ReturnType<typeof setTimeout> | undefined;
-	private webviewView: vscode.WebviewView | undefined;
 
 	constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -99,8 +111,6 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 		_context: vscode.WebviewViewResolveContext,
 		_token: vscode.CancellationToken,
 	): void {
-		this.webviewView = webviewView;
-
 		webviewView.webview.options = {
 			enableScripts: true,
 			localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist")],
@@ -115,7 +125,6 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 
 		webviewView.onDidDispose(() => {
 			this.disposeWatcher();
-			this.webviewView = undefined;
 		});
 	}
 
@@ -130,6 +139,8 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 				break;
 			}
 			case "readDirectory": {
+				this.latestRequestId = msg.requestId;
+
 				let parsed: vscode.Uri;
 				try {
 					parsed = vscode.Uri.parse(msg.uri, true);
@@ -145,24 +156,9 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 
 				try {
 					const rawEntries = await vscode.workspace.fs.readDirectory(parsed);
-					const entries: DirectoryEntry[] = await Promise.all(
-						rawEntries.map(async ([name, fileType]) => {
-							const { kind, isSymbolicLink } = fileTypeToKind(fileType);
-							const entryUri = vscode.Uri.joinPath(parsed, name);
-							let size: number | null = null;
-							let mtime: number | null = null;
-							try {
-								const stat = await vscode.workspace.fs.stat(entryUri);
-								size = stat.size;
-								mtime = stat.mtime;
-							} catch {
-								// Permission denied, broken symlink, etc.
-							}
-							return { name, uri: entryUri.toString(), kind, isSymbolicLink, size, mtime };
-						}),
-					);
+					const entries = await statEntries(rawEntries, parsed);
 
-					sortEntries(entries);
+					if (msg.requestId !== this.latestRequestId) return;
 
 					this.currentUri = parsed;
 					this.setupWatcher(parsed, webview);
@@ -176,6 +172,8 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 						breadcrumbs: computeBreadcrumbs(parsed),
 					});
 				} catch (e: unknown) {
+					if (msg.requestId !== this.latestRequestId) return;
+
 					const error = e instanceof vscode.FileSystemError
 						? e.code ?? e.message
 						: e instanceof Error
@@ -200,7 +198,7 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 				try {
 					await vscode.window.showTextDocument(parsed);
 				} catch {
-					// File may not be openable as text — ignore
+					// File may not be openable as text
 				}
 				break;
 			}
@@ -231,7 +229,7 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 			this.watcher.onDidCreate(notify);
 			this.watcher.onDidDelete(notify);
 		} catch {
-			// Some filesystem providers don't support watching — tolerate
+			// Some filesystem providers don't support watching
 		}
 	}
 

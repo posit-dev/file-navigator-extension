@@ -1,9 +1,6 @@
 import { ChevronRight } from "lucide-react";
 
-type BreadcrumbSegment = {
-	label: string;
-	uri: string;
-};
+import type { BreadcrumbSegment } from "./types";
 
 type BreadcrumbProps = {
 	segments: BreadcrumbSegment[];

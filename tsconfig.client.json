@@ -17,5 +17,5 @@
     "noUncheckedSideEffectImports": true,
     "types": []
   },
-  "include": ["src/frontend/**/*"]
+  "include": ["src/frontend/**/*", "src/protocol.ts"]
 }
