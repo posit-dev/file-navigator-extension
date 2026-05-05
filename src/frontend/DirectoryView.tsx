@@ -1,18 +1,16 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { clsx } from "clsx";
-import { Folder, File, CornerUpLeft, RefreshCw, Link } from "lucide-react";
+import { Folder, File, CornerUpLeft, RefreshCw, Link, ArrowUp, ArrowDown } from "lucide-react";
 
-type DirectoryEntry = {
-	name: string;
-	uri: string;
-	kind: "file" | "directory" | "unknown";
-	isSymbolicLink: boolean;
-};
+import type { DirectoryEntry, SortColumn, SortDirection } from "./types";
 
 type DirectoryViewProps = {
 	entries: DirectoryEntry[];
 	parentUri: string | null;
 	loading: boolean;
+	sortColumn: SortColumn;
+	sortDirection: SortDirection;
+	onSort: (column: SortColumn) => void;
 	onNavigate: (uri: string) => void;
 	onOpenFile: (uri: string) => void;
 	onRefresh: () => void;
@@ -22,10 +20,43 @@ type ListItem =
 	| { type: "parent"; uri: string }
 	| { type: "entry"; entry: DirectoryEntry };
 
+function formatSize(bytes: number | null): string {
+	if (bytes === null) return "";
+	if (bytes < 1024) return `${bytes} B`;
+	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+	if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function formatDate(mtime: number | null): string {
+	if (mtime === null) return "";
+	const date = new Date(mtime);
+	const now = new Date();
+	const sameYear = date.getFullYear() === now.getFullYear();
+	if (sameYear) {
+		return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+	}
+	return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function SortIndicator({ column, sortColumn, sortDirection }: {
+	column: SortColumn;
+	sortColumn: SortColumn;
+	sortDirection: SortDirection;
+}) {
+	if (column !== sortColumn) return null;
+	return sortDirection === "asc"
+		? <ArrowUp className="size-3 shrink-0" />
+		: <ArrowDown className="size-3 shrink-0" />;
+}
+
 export function DirectoryView({
 	entries,
 	parentUri,
 	loading,
+	sortColumn,
+	sortDirection,
+	onSort,
 	onNavigate,
 	onOpenFile,
 	onRefresh,
@@ -93,6 +124,8 @@ export function DirectoryView({
 		return <div className="p-2 text-center text-muted-foreground">Loading...</div>;
 	}
 
+	const columnHeaderClass = "flex items-center gap-0.5 cursor-pointer select-none hover:text-foreground";
+
 	return (
 		<div
 			className="flex-1 overflow-y-auto outline-none"
@@ -100,14 +133,38 @@ export function DirectoryView({
 			tabIndex={0}
 			onKeyDown={handleKeyDown}
 		>
-			<div className="flex justify-end px-1 py-0.5">
-				<button
-					className="flex items-center justify-center size-6 bg-transparent border-none text-icon-foreground cursor-pointer rounded-sm hover:bg-accent"
-					onClick={onRefresh}
-					title="Refresh"
-				>
-					<RefreshCw className="size-3.5" />
-				</button>
+			{/* Column headers + refresh */}
+			<div className="sticky top-0 bg-background z-10 border-b border-border">
+				<div className="flex items-center h-[22px] px-2 text-[0.85em] text-muted-foreground">
+					<div className="flex items-center gap-1.5 min-w-0 flex-1">
+						<span className="w-4 shrink-0" />
+						<button className={columnHeaderClass} onClick={() => onSort("name")}>
+							Name
+							<SortIndicator column="name" sortColumn={sortColumn} sortDirection={sortDirection} />
+						</button>
+					</div>
+					<button
+						className={clsx(columnHeaderClass, "w-[5.5rem] justify-end")}
+						onClick={() => onSort("size")}
+					>
+						Size
+						<SortIndicator column="size" sortColumn={sortColumn} sortDirection={sortDirection} />
+					</button>
+					<button
+						className={clsx(columnHeaderClass, "w-[5.5rem] justify-end")}
+						onClick={() => onSort("mtime")}
+					>
+						Modified
+						<SortIndicator column="mtime" sortColumn={sortColumn} sortDirection={sortDirection} />
+					</button>
+					<button
+						className="flex items-center justify-center size-5 bg-transparent border-none text-icon-foreground cursor-pointer rounded-sm hover:bg-accent ml-1"
+						onClick={onRefresh}
+						title="Refresh"
+					>
+						<RefreshCw className="size-3" />
+					</button>
+				</div>
 			</div>
 			{items.length === 0 ? (
 				<div className="p-2 text-center text-muted-foreground">Empty directory</div>
@@ -120,7 +177,7 @@ export function DirectoryView({
 								<div
 									key=".."
 									className={clsx(
-										"flex items-center gap-1.5 px-2 h-[22px] cursor-pointer select-none",
+										"flex items-center px-2 h-[22px] cursor-pointer select-none",
 										selected
 											? "bg-selected text-selected-foreground"
 											: "hover:bg-accent",
@@ -128,8 +185,10 @@ export function DirectoryView({
 									data-index={index}
 									onClick={() => activateItem(item)}
 								>
-									<CornerUpLeft className="size-4 shrink-0" />
-									<span className="truncate">..</span>
+									<div className="flex items-center gap-1.5 min-w-0 flex-1">
+										<CornerUpLeft className="size-4 shrink-0" />
+										<span className="truncate">..</span>
+									</div>
 								</div>
 							);
 						}
@@ -139,7 +198,7 @@ export function DirectoryView({
 							<div
 								key={entry.name}
 								className={clsx(
-									"flex items-center gap-1.5 px-2 h-[22px] cursor-pointer select-none",
+									"flex items-center px-2 h-[22px] cursor-pointer select-none",
 									selected
 										? "bg-selected text-selected-foreground"
 										: "hover:bg-accent",
@@ -147,17 +206,27 @@ export function DirectoryView({
 								data-index={index}
 								onClick={() => activateItem(item)}
 							>
-								<span className="relative shrink-0 flex items-center">
-									{isDir ? (
-										<Folder className="size-4" />
-									) : (
-										<File className="size-4" />
-									)}
-									{entry.isSymbolicLink && (
-										<Link className="size-2.5 absolute -bottom-0.5 -right-1" />
-									)}
+								<div className="flex items-center gap-1.5 min-w-0 flex-1">
+									<span className="relative shrink-0 flex items-center">
+										{isDir ? (
+											<Folder className="size-4" />
+										) : (
+											<File className="size-4" />
+										)}
+										{entry.isSymbolicLink && (
+											<Link className="size-2.5 absolute -bottom-0.5 -right-1" />
+										)}
+									</span>
+									<span className="truncate">{entry.name}</span>
+								</div>
+								<span className="w-[5.5rem] text-right text-[0.85em] text-muted-foreground shrink-0">
+									{isDir ? "" : formatSize(entry.size)}
 								</span>
-								<span className="truncate">{entry.name}</span>
+								<span className="w-[5.5rem] text-right text-[0.85em] text-muted-foreground shrink-0">
+									{formatDate(entry.mtime)}
+								</span>
+								{/* spacer matching refresh button width */}
+								<span className="w-5 ml-1 shrink-0" />
 							</div>
 						);
 					})}

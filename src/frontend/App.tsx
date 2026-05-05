@@ -1,15 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 
 import { Breadcrumb } from "./Breadcrumb";
 import { DirectoryView } from "./DirectoryView";
 import { FilterInput } from "./FilterInput";
-
-type DirectoryEntry = {
-	name: string;
-	uri: string;
-	kind: "file" | "directory" | "unknown";
-	isSymbolicLink: boolean;
-};
+import type { DirectoryEntry, SortColumn, SortDirection } from "./types";
 
 type BreadcrumbSegment = {
 	label: string;
@@ -24,6 +18,32 @@ declare function acquireVsCodeApi(): {
 
 const vscode = acquireVsCodeApi();
 
+function compareEntries(a: DirectoryEntry, b: DirectoryEntry, column: SortColumn, direction: SortDirection): number {
+	const dir = direction === "asc" ? 1 : -1;
+	switch (column) {
+		case "name":
+			return dir * a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+		case "size": {
+			const aVal = a.size ?? -1;
+			const bVal = b.size ?? -1;
+			return dir * (aVal - bVal);
+		}
+		case "mtime": {
+			const aVal = a.mtime ?? -1;
+			const bVal = b.mtime ?? -1;
+			return dir * (aVal - bVal);
+		}
+	}
+}
+
+function sortEntries(entries: DirectoryEntry[], column: SortColumn, direction: SortDirection): DirectoryEntry[] {
+	return [...entries].sort((a, b) => {
+		if (a.kind === "directory" && b.kind !== "directory") return -1;
+		if (a.kind !== "directory" && b.kind === "directory") return 1;
+		return compareEntries(a, b, column, direction);
+	});
+}
+
 export function App() {
 	const [currentUri, setCurrentUri] = useState<string>("");
 	const [entries, setEntries] = useState<DirectoryEntry[]>([]);
@@ -32,6 +52,8 @@ export function App() {
 	const [filter, setFilter] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [sortColumn, setSortColumn] = useState<SortColumn>("name");
+	const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 	const requestIdRef = useRef(0);
 
 	const readDirectory = useCallback((uri: string) => {
@@ -58,6 +80,17 @@ export function App() {
 			readDirectory(currentUri);
 		}
 	}, [currentUri, readDirectory]);
+
+	const handleSort = useCallback((column: SortColumn) => {
+		setSortColumn((prev) => {
+			if (prev === column) {
+				setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+			} else {
+				setSortDirection(column === "name" ? "asc" : "desc");
+			}
+			return column;
+		});
+	}, []);
 
 	useEffect(() => {
 		const handler = (event: MessageEvent) => {
@@ -94,9 +127,12 @@ export function App() {
 		return () => window.removeEventListener("message", handler);
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-	const filteredEntries = filter
-		? entries.filter((e) => e.name.toLowerCase().includes(filter.toLowerCase()))
-		: entries;
+	const sortedFilteredEntries = useMemo(() => {
+		const filtered = filter
+			? entries.filter((e) => e.name.toLowerCase().includes(filter.toLowerCase()))
+			: entries;
+		return sortEntries(filtered, sortColumn, sortDirection);
+	}, [entries, filter, sortColumn, sortDirection]);
 
 	return (
 		<div className="flex h-screen flex-col py-1">
@@ -104,9 +140,12 @@ export function App() {
 			<Breadcrumb segments={breadcrumbs} onNavigate={navigate} />
 			{error && <div className="px-2 py-1 text-[0.9em] text-error-foreground">{error}</div>}
 			<DirectoryView
-				entries={filteredEntries}
+				entries={sortedFilteredEntries}
 				parentUri={parentUri}
 				loading={loading}
+				sortColumn={sortColumn}
+				sortDirection={sortDirection}
+				onSort={handleSort}
 				onNavigate={navigate}
 				onOpenFile={openFile}
 				onRefresh={refresh}

@@ -7,6 +7,8 @@ type DirectoryEntry = {
 	uri: string;
 	kind: "file" | "directory" | "unknown";
 	isSymbolicLink: boolean;
+	size: number | null;
+	mtime: number | null;
 };
 
 type BreadcrumbSegment = {
@@ -143,11 +145,22 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 
 				try {
 					const rawEntries = await vscode.workspace.fs.readDirectory(parsed);
-					const entries: DirectoryEntry[] = rawEntries.map(([name, fileType]) => {
-						const { kind, isSymbolicLink } = fileTypeToKind(fileType);
-						const entryUri = vscode.Uri.joinPath(parsed, name);
-						return { name, uri: entryUri.toString(), kind, isSymbolicLink };
-					});
+					const entries: DirectoryEntry[] = await Promise.all(
+						rawEntries.map(async ([name, fileType]) => {
+							const { kind, isSymbolicLink } = fileTypeToKind(fileType);
+							const entryUri = vscode.Uri.joinPath(parsed, name);
+							let size: number | null = null;
+							let mtime: number | null = null;
+							try {
+								const stat = await vscode.workspace.fs.stat(entryUri);
+								size = stat.size;
+								mtime = stat.mtime;
+							} catch {
+								// Permission denied, broken symlink, etc.
+							}
+							return { name, uri: entryUri.toString(), kind, isSymbolicLink, size, mtime };
+						}),
+					);
 
 					sortEntries(entries);
 
