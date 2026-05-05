@@ -32,10 +32,7 @@ async function main() {
 			sourcesContent: true,
 			external: ["vscode-webview"],
 			jsx: "automatic",
-			plugins: [
-				createProblemMatcherPlugin(["src/frontend/main.tsx"], watch),
-				tailwindPlugin(),
-			],
+			plugins: [createProblemMatcherPlugin(["src/frontend/main.tsx"], watch), tailwindPlugin()],
 		}),
 	};
 

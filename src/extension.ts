@@ -1,6 +1,7 @@
-import * as vscode from "vscode";
-import * as path from "path";
 import * as os from "os";
+import * as path from "path";
+
+import * as vscode from "vscode";
 
 import type { DirectoryEntry, BreadcrumbSegment } from "./protocol";
 
@@ -51,9 +52,10 @@ function computeBreadcrumbs(uri: vscode.Uri): BreadcrumbSegment[] {
 	return segments;
 }
 
-function fileTypeToKind(
-	fileType: vscode.FileType,
-): { kind: "file" | "directory" | "unknown"; isSymbolicLink: boolean } {
+function fileTypeToKind(fileType: vscode.FileType): {
+	kind: "file" | "directory" | "unknown";
+	isSymbolicLink: boolean;
+} {
 	const isSymbolicLink = (fileType & vscode.FileType.SymbolicLink) !== 0;
 	const baseType = fileType & ~vscode.FileType.SymbolicLink;
 	let kind: "file" | "directory" | "unknown";
@@ -93,7 +95,9 @@ async function statEntries(
 		}
 	}
 
-	const workers = Array.from({ length: Math.min(STAT_CONCURRENCY, rawEntries.length) }, () => next());
+	const workers = Array.from({ length: Math.min(STAT_CONCURRENCY, rawEntries.length) }, () =>
+		next(),
+	);
 	await Promise.all(workers);
 	return entries;
 }
@@ -132,9 +136,7 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 		switch (msg.type) {
 			case "getInitialDirectory": {
 				const folders = vscode.workspace.workspaceFolders;
-				const uri = folders && folders.length > 0
-					? folders[0].uri
-					: vscode.Uri.file(os.homedir());
+				const uri = folders && folders.length > 0 ? folders[0].uri : vscode.Uri.file(os.homedir());
 				webview.postMessage({ type: "initialDirectory", uri: uri.toString() });
 				break;
 			}
@@ -174,11 +176,12 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 				} catch (e: unknown) {
 					if (msg.requestId !== this.latestRequestId) return;
 
-					const error = e instanceof vscode.FileSystemError
-						? e.code ?? e.message
-						: e instanceof Error
-							? e.message
-							: "Unknown error";
+					const error =
+						e instanceof vscode.FileSystemError
+							? (e.code ?? e.message)
+							: e instanceof Error
+								? e.message
+								: "Unknown error";
 					webview.postMessage({
 						type: "directoryError",
 						requestId: msg.requestId,
@@ -212,7 +215,7 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 			this.watcher = vscode.workspace.createFileSystemWatcher(
 				pattern,
 				false, // create
-				true,  // change — ignored
+				true, // change — ignored
 				false, // delete
 			);
 

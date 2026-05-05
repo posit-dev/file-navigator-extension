@@ -41,14 +41,15 @@
     "lint": "oxlint -c ../../oxlint.config.json src"
   },
   "devDependencies": {
-    "@types/vscode": "^1.100.0",
-    "@types/vscode-webview": "^1.57.5",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
+    "@types/vscode": "^1.100.0",
+    "@types/vscode-webview": "^1.57.5",
     "clsx": "^2.1.1",
     "esbuild": "^0.25.0",
     "esbuild-plugin-tailwindcss": "^2.1.0",
     "lucide-react": "^0.552.0",
+    "oxfmt": "^0.41.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwindcss": "^4.1.16",

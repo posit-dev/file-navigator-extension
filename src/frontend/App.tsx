@@ -13,7 +13,12 @@ declare function acquireVsCodeApi(): {
 
 const vscode = acquireVsCodeApi();
 
-function compareEntries(a: DirectoryEntry, b: DirectoryEntry, column: SortColumn, direction: SortDirection): number {
+function compareEntries(
+	a: DirectoryEntry,
+	b: DirectoryEntry,
+	column: SortColumn,
+	direction: SortDirection,
+): number {
 	const dir = direction === "asc" ? 1 : -1;
 	switch (column) {
 		case "name":
@@ -31,7 +36,11 @@ function compareEntries(a: DirectoryEntry, b: DirectoryEntry, column: SortColumn
 	}
 }
 
-function sortEntries(entries: DirectoryEntry[], column: SortColumn, direction: SortDirection): DirectoryEntry[] {
+function sortEntries(
+	entries: DirectoryEntry[],
+	column: SortColumn,
+	direction: SortDirection,
+): DirectoryEntry[] {
 	return [...entries].sort((a, b) => {
 		if (a.kind === "directory" && b.kind !== "directory") return -1;
 		if (a.kind !== "directory" && b.kind === "directory") return 1;

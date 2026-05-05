@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "useTabs": true,
+  "tabWidth": 2,
+  "printWidth": 100,
+  "sortImports": {
+    "groups": [
+      "builtin",
+      "external",
+      { "newlinesBetween": true },
+      ["internal", "parent", "sibling", "index", "unknown"]
+    ]
+  },
+  "sortTailwindcss": {
+    "stylesheet": "./src/frontend/styles.css",
+    "preserveWhitespace": true
+  },
+  "sortPackageJson": false,
+  "ignorePatterns": ["**/dist/", "**/*.tsbuildinfo"],
+  "overrides": [
+    {
+      "files": ["*.json", "*.md", "*.yml", "*.yaml"],
+      "options": {
+        "useTabs": false
+      }
+    }
+  ]
+}

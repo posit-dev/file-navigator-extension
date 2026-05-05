@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef, useEffect } from "react";
 import { clsx } from "clsx";
 import { Folder, File, CornerUpLeft, RefreshCw, Link, ArrowUp, ArrowDown } from "lucide-react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 import type { DirectoryEntry, SortColumn, SortDirection } from "./types";
 
@@ -16,9 +16,7 @@ type DirectoryViewProps = {
 	onRefresh: () => void;
 };
 
-type ListItem =
-	| { type: "parent"; uri: string }
-	| { type: "entry"; entry: DirectoryEntry };
+type ListItem = { type: "parent"; uri: string } | { type: "entry"; entry: DirectoryEntry };
 
 function formatSize(bytes: number | null): string {
 	if (bytes === null) return "";
@@ -39,15 +37,21 @@ function formatDate(mtime: number | null): string {
 	return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-function SortIndicator({ column, sortColumn, sortDirection }: {
+function SortIndicator({
+	column,
+	sortColumn,
+	sortDirection,
+}: {
 	column: SortColumn;
 	sortColumn: SortColumn;
 	sortDirection: SortDirection;
 }) {
 	if (column !== sortColumn) return null;
-	return sortDirection === "asc"
-		? <ArrowUp className="size-3 shrink-0" />
-		: <ArrowDown className="size-3 shrink-0" />;
+	return sortDirection === "asc" ? (
+		<ArrowUp className="size-3 shrink-0" />
+	) : (
+		<ArrowDown className="size-3 shrink-0" />
+	);
 }
 
 export function DirectoryView({
@@ -124,7 +128,8 @@ export function DirectoryView({
 		return <div className="p-2 text-center text-muted-foreground">Loading...</div>;
 	}
 
-	const columnHeaderClass = "flex items-center gap-0.5 cursor-pointer select-none hover:text-foreground";
+	const columnHeaderClass =
+		"flex items-center gap-0.5 cursor-pointer select-none hover:text-foreground";
 
 	return (
 		<div
@@ -134,9 +139,9 @@ export function DirectoryView({
 			onKeyDown={handleKeyDown}
 		>
 			{/* Column headers + refresh */}
-			<div className="sticky top-0 bg-background z-10 border-b border-border">
-				<div className="flex items-center h-[22px] px-2 text-[0.85em] text-muted-foreground">
-					<div className="flex items-center gap-1.5 min-w-0 flex-1">
+			<div className="sticky top-0 z-10 border-b border-border bg-background">
+				<div className="flex h-[22px] items-center px-2 text-[0.85em] text-muted-foreground">
+					<div className="flex min-w-0 flex-1 items-center gap-1.5">
 						<span className="w-4 shrink-0" />
 						<button className={columnHeaderClass} onClick={() => onSort("name")}>
 							Name
@@ -158,7 +163,7 @@ export function DirectoryView({
 						<SortIndicator column="mtime" sortColumn={sortColumn} sortDirection={sortDirection} />
 					</button>
 					<button
-						className="flex items-center justify-center size-5 bg-transparent border-none text-icon-foreground cursor-pointer rounded-sm hover:bg-accent ml-1"
+						className="ml-1 flex size-5 cursor-pointer items-center justify-center rounded-sm border-none bg-transparent text-icon-foreground hover:bg-accent"
 						onClick={onRefresh}
 						title="Refresh"
 					>
@@ -178,14 +183,12 @@ export function DirectoryView({
 									key=".."
 									className={clsx(
 										"flex items-center px-2 h-[22px] cursor-pointer select-none",
-										selected
-											? "bg-selected text-selected-foreground"
-											: "hover:bg-accent",
+										selected ? "bg-selected text-selected-foreground" : "hover:bg-accent",
 									)}
 									data-index={index}
 									onClick={() => activateItem(item)}
 								>
-									<div className="flex items-center gap-1.5 min-w-0 flex-1">
+									<div className="flex min-w-0 flex-1 items-center gap-1.5">
 										<CornerUpLeft className="size-4 shrink-0" />
 										<span className="truncate">..</span>
 									</div>
@@ -199,34 +202,28 @@ export function DirectoryView({
 								key={entry.name}
 								className={clsx(
 									"flex items-center px-2 h-[22px] cursor-pointer select-none",
-									selected
-										? "bg-selected text-selected-foreground"
-										: "hover:bg-accent",
+									selected ? "bg-selected text-selected-foreground" : "hover:bg-accent",
 								)}
 								data-index={index}
 								onClick={() => activateItem(item)}
 							>
-								<div className="flex items-center gap-1.5 min-w-0 flex-1">
-									<span className="relative shrink-0 flex items-center">
-										{isDir ? (
-											<Folder className="size-4" />
-										) : (
-											<File className="size-4" />
-										)}
+								<div className="flex min-w-0 flex-1 items-center gap-1.5">
+									<span className="relative flex shrink-0 items-center">
+										{isDir ? <Folder className="size-4" /> : <File className="size-4" />}
 										{entry.isSymbolicLink && (
-											<Link className="size-2.5 absolute -bottom-0.5 -right-1" />
+											<Link className="absolute -right-1 -bottom-0.5 size-2.5" />
 										)}
 									</span>
 									<span className="truncate">{entry.name}</span>
 								</div>
-								<span className="w-[5.5rem] text-right text-[0.85em] text-muted-foreground shrink-0">
+								<span className="w-[5.5rem] shrink-0 text-right text-[0.85em] text-muted-foreground">
 									{isDir ? "" : formatSize(entry.size)}
 								</span>
-								<span className="w-[5.5rem] text-right text-[0.85em] text-muted-foreground shrink-0">
+								<span className="w-[5.5rem] shrink-0 text-right text-[0.85em] text-muted-foreground">
 									{formatDate(entry.mtime)}
 								</span>
 								{/* spacer matching refresh button width */}
-								<span className="w-5 ml-1 shrink-0" />
+								<span className="ml-1 w-5 shrink-0" />
 							</div>
 						);
 					})}

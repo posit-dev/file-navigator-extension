@@ -37,8 +37,7 @@
 	--color-error-foreground: var(--error-foreground);
 	--color-icon-foreground: var(--icon-foreground);
 	--font-sans:
-		var(--vscode-font-family, system-ui), -apple-system, BlinkMacSystemFont,
-		"Segoe UI", sans-serif;
+		var(--vscode-font-family, system-ui), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * {
@@ -46,6 +45,6 @@
 }
 
 body {
-	@apply bg-background text-foreground font-sans overflow-hidden;
+	@apply overflow-hidden bg-background font-sans text-foreground;
 	font-size: var(--vscode-font-size, 13px);
 }
