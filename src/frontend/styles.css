@@ -19,6 +19,10 @@
 	--border: var(--vscode-sideBarSectionHeader-border, #444444);
 	--error-foreground: var(--vscode-errorForeground, #f48771);
 	--icon-foreground: var(--vscode-icon-foreground, #c5c5c5);
+	--tooltip: var(--vscode-editorHoverWidget-background, #252526);
+	--tooltip-foreground: var(--vscode-editorHoverWidget-foreground, #cccccc);
+	--tooltip-border: var(--vscode-editorHoverWidget-border, #454545);
+	--widget-shadow: var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
 }
 
 @theme inline {
@@ -36,6 +40,9 @@
 	--color-border: var(--border);
 	--color-error-foreground: var(--error-foreground);
 	--color-icon-foreground: var(--icon-foreground);
+	--color-tooltip: var(--tooltip);
+	--color-tooltip-foreground: var(--tooltip-foreground);
+	--color-tooltip-border: var(--tooltip-border);
 	--font-sans:
 		var(--vscode-font-family, system-ui), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }

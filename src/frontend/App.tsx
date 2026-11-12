@@ -1,9 +1,10 @@
-import { CornerLeftUp, List, ListTree, RefreshCw } from "lucide-react";
+import { CornerLeftUp, House, List, ListTree, RefreshCw } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 
 import { Breadcrumb } from "./Breadcrumb";
 import { DirectoryView } from "./DirectoryView";
 import { FilterInput } from "./FilterInput";
+import { ToolbarButton } from "./ToolbarButton";
 import type {
 	BreadcrumbSegment,
 	DirectoryEntry,
@@ -28,11 +29,10 @@ function savedMode(): ViewMode {
 		: "flat";
 }
 
-const toolbarButtonClass =
-	"flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm border-none bg-transparent text-icon-foreground hover:bg-accent disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent";
-
 export function App() {
 	const [mode, setMode] = useState<ViewMode>(savedMode);
+	// Where the view starts and the Home button goes: the workspace folder, else the home directory.
+	const [home, setHome] = useState<{ uri: string; isWorkspace: boolean } | null>(null);
 	const [currentUri, setCurrentUri] = useState<string>("");
 	const [entries, setEntries] = useState<DirectoryEntry[]>([]);
 	// Contents of folders loaded in the tree, by URI. Kept across root changes: moving the root
@@ -121,6 +121,7 @@ export function App() {
 			const msg = event.data;
 			switch (msg.type) {
 				case "initialDirectory":
+					setHome({ uri: msg.uri, isWorkspace: msg.isWorkspace });
 					navigate(msg.uri);
 					break;
 				case "directoryContents": {
@@ -170,26 +171,31 @@ export function App() {
 		<div className="flex h-screen flex-col py-1">
 			<FilterInput value={filter} onChange={setFilter} />
 			<div className="flex items-center gap-0.5 border-b border-border px-1">
-				<button
-					className={toolbarButtonClass}
+				<ToolbarButton
+					label={mode === "tree" ? "Move root up to parent folder" : "Up to parent folder"}
 					onClick={navigateUp}
 					disabled={!parentUri}
-					title={mode === "tree" ? "Move root up to parent folder" : "Up to parent folder"}
 				>
 					<CornerLeftUp className="size-3.5" />
-				</button>
+				</ToolbarButton>
+				<ToolbarButton
+					label={home?.isWorkspace === false ? "Go to home folder" : "Go to workspace folder"}
+					onClick={() => home && navigate(home.uri)}
+					disabled={!home || home.uri === currentUri}
+				>
+					<House className="size-3.5" />
+				</ToolbarButton>
 				<Breadcrumb segments={breadcrumbs} onNavigate={navigate} />
-				<button
-					className={toolbarButtonClass}
+				<ToolbarButton
+					label={mode === "flat" ? "Show as tree" : "Show as list"}
 					onClick={() => setMode((m) => (m === "flat" ? "tree" : "flat"))}
-					title={mode === "flat" ? "Show as tree" : "Show as list"}
-					aria-pressed={mode === "tree"}
+					pressed={mode === "tree"}
 				>
 					{mode === "flat" ? <ListTree className="size-3.5" /> : <List className="size-3.5" />}
-				</button>
-				<button className={toolbarButtonClass} onClick={refresh} title="Refresh">
+				</ToolbarButton>
+				<ToolbarButton label="Refresh" onClick={refresh}>
 					<RefreshCw className="size-3" />
-				</button>
+				</ToolbarButton>
 			</div>
 			{error && <div className="px-2 py-1 text-[0.9em] text-error-foreground">{error}</div>}
 			<DirectoryView

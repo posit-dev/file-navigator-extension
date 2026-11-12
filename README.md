@@ -8,7 +8,7 @@ A VS Code / Positron extension that provides a directory browser in a sidebar we
 
 - **Flat view**: shows one directory at a time, like a traditional file manager. A `..` row at the top goes to the parent.
 - **Tree view**: folders load their contents when expanded. Click a folder to expand or collapse it; double-click to make it the root. Moving the root up keeps the old root expanded.
-- **Breadcrumb navigation**: click a path segment to jump to that ancestor.
+- **Breadcrumb navigation**: click a path segment to jump to that ancestor. The Home button goes back to the workspace folder (or the home directory, with no workspace open).
 - **Sortable columns**: sort by name, size, or modified date. Directories always sort first, and in tree view each folder is sorted on its own.
 - **Filtering**: instant search over the entries that have been loaded.
 - **Keyboard navigation**: arrow keys and type-ahead to move, Enter to open, Backspace to go up (in tree view, Backspace moves the root up).
@@ -63,7 +63,7 @@ Webview → Extension:
   { type: "openFile", uri }
 
 Extension → Webview:
-  { type: "initialDirectory", uri }
+  { type: "initialDirectory", uri, isWorkspace }  // also the Home button's target
   { type: "directoryContents", requestId, uri, entries, parentUri, breadcrumbs }
   { type: "directoryError", requestId, uri, error }
   { type: "childrenContents", uri, entries }

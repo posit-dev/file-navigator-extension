@@ -23,6 +23,7 @@ temp/file-navigator/
         ├── treeLayout.ts    # Pure: entries + loaded folders → sorted tree paths
         ├── Breadcrumb.tsx   # Clickable path segments
         ├── FilterInput.tsx  # Client-side filter
+        ├── ToolbarButton.tsx # Icon button with a themed, viewport-clamped tooltip
         ├── types.ts         # Frontend types (SortColumn, ViewMode), re-exports protocol types
         ├── styles.css       # Tailwind entry + VS Code theme variable mappings
         └── css.d.ts         # TypeScript declaration for CSS imports
@@ -74,7 +75,7 @@ Webview → Extension:
   { type: "openFile", uri: string }
 
 Extension → Webview:
-  { type: "initialDirectory", uri: string }
+  { type: "initialDirectory", uri: string, isWorkspace: boolean }  // also the Home button's target
   { type: "directoryContents", requestId, uri, entries, parentUri, breadcrumbs }
   { type: "directoryError", requestId, uri, error }
   { type: "childrenContents", uri, entries }

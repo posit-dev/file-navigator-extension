@@ -180,9 +180,14 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 	private async handleMessage(msg: IncomingMessage, webview: vscode.Webview): Promise<void> {
 		switch (msg.type) {
 			case "getInitialDirectory": {
-				const folders = vscode.workspace.workspaceFolders;
-				const uri = folders && folders.length > 0 ? folders[0].uri : vscode.Uri.file(os.homedir());
-				webview.postMessage({ type: "initialDirectory", uri: uri.toString() });
+				// Also the Home button's target: the first workspace folder, else the home directory.
+				const folder = vscode.workspace.workspaceFolders?.[0];
+				const uri = folder ? folder.uri : vscode.Uri.file(os.homedir());
+				webview.postMessage({
+					type: "initialDirectory",
+					uri: uri.toString(),
+					isWorkspace: folder !== undefined,
+				});
 				break;
 			}
 			case "readDirectory": {
