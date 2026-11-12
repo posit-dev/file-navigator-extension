@@ -5,7 +5,7 @@ A VS Code / Positron extension that provides a directory browser in a sidebar we
 ## Structure
 
 ```
-packages/file-navigator/
+temp/file-navigator/
 ├── esbuild.ts              # Build: two contexts (Node extension + browser webview)
 ├── tailwind.config.ts
 ├── tsconfig.json            # Composite: references server + client tsconfigs
@@ -15,6 +15,7 @@ packages/file-navigator/
 │   └── icon.svg             # Activity bar icon
 └── src/
     ├── extension.ts         # Backend: WebviewViewProvider, message handling, file watcher
+    ├── protocol.ts          # Types shared by backend and frontend (DirectoryEntry, BreadcrumbSegment)
     └── frontend/
         ├── main.tsx         # React entry point
         ├── App.tsx          # Root component: state, view mode, message dispatch
@@ -22,7 +23,7 @@ packages/file-navigator/
         ├── treeLayout.ts    # Pure: entries + loaded folders → sorted tree paths
         ├── Breadcrumb.tsx   # Clickable path segments
         ├── FilterInput.tsx  # Client-side filter
-        ├── types.ts         # Shared frontend types (DirectoryEntry, SortColumn, etc.)
+        ├── types.ts         # Frontend types (SortColumn, ViewMode), re-exports protocol types
         ├── styles.css       # Tailwind entry + VS Code theme variable mappings
         └── css.d.ts         # TypeScript declaration for CSS imports
 ```
