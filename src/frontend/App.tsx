@@ -1,9 +1,16 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { CornerLeftUp, List, ListTree, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 import { Breadcrumb } from "./Breadcrumb";
 import { DirectoryView } from "./DirectoryView";
 import { FilterInput } from "./FilterInput";
-import type { BreadcrumbSegment, DirectoryEntry, SortColumn, SortDirection } from "./types";
+import type {
+	BreadcrumbSegment,
+	DirectoryEntry,
+	SortColumn,
+	SortDirection,
+	ViewMode,
+} from "./types";
 
 declare function acquireVsCodeApi(): {
 	postMessage(msg: unknown): void;
@@ -13,44 +20,26 @@ declare function acquireVsCodeApi(): {
 
 const vscode = acquireVsCodeApi();
 
-function compareEntries(
-	a: DirectoryEntry,
-	b: DirectoryEntry,
-	column: SortColumn,
-	direction: SortDirection,
-): number {
-	const dir = direction === "asc" ? 1 : -1;
-	switch (column) {
-		case "name":
-			return dir * a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-		case "size": {
-			const aVal = a.size ?? -1;
-			const bVal = b.size ?? -1;
-			return dir * (aVal - bVal);
-		}
-		case "mtime": {
-			const aVal = a.mtime ?? -1;
-			const bVal = b.mtime ?? -1;
-			return dir * (aVal - bVal);
-		}
-	}
+/** The view mode saved in the webview state, else the flat list. */
+function savedMode(): ViewMode {
+	const state = vscode.getState();
+	return typeof state === "object" && state !== null && "mode" in state && state.mode === "tree"
+		? "tree"
+		: "flat";
 }
 
-function sortEntries(
-	entries: DirectoryEntry[],
-	column: SortColumn,
-	direction: SortDirection,
-): DirectoryEntry[] {
-	return [...entries].sort((a, b) => {
-		if (a.kind === "directory" && b.kind !== "directory") return -1;
-		if (a.kind !== "directory" && b.kind === "directory") return 1;
-		return compareEntries(a, b, column, direction);
-	});
-}
+const toolbarButtonClass =
+	"flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm border-none bg-transparent text-icon-foreground hover:bg-accent disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent";
 
 export function App() {
+	const [mode, setMode] = useState<ViewMode>(savedMode);
 	const [currentUri, setCurrentUri] = useState<string>("");
 	const [entries, setEntries] = useState<DirectoryEntry[]>([]);
+	// Contents of folders loaded in the tree, by URI. Kept across root changes: moving the root
+	// up shows the old root (and whatever was loaded under it) as an expanded folder.
+	const [loadedFolders, setLoadedFolders] = useState<ReadonlyMap<string, DirectoryEntry[]>>(
+		new Map(),
+	);
 	const [parentUri, setParentUri] = useState<string | null>(null);
 	const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbSegment[]>([]);
 	const [filter, setFilter] = useState("");
@@ -61,12 +50,25 @@ export function App() {
 	const requestIdRef = useRef(0);
 	const currentUriRef = useRef(currentUri);
 	currentUriRef.current = currentUri;
+	const entriesRef = useRef(entries);
+	entriesRef.current = entries;
+	const loadedFoldersRef = useRef(loadedFolders);
+	loadedFoldersRef.current = loadedFolders;
+	const expandedRef = useRef<ReadonlySet<string>>(new Set());
+
+	useEffect(() => {
+		vscode.setState({ mode });
+	}, [mode]);
 
 	const readDirectory = useCallback((uri: string) => {
 		const id = ++requestIdRef.current;
 		setLoading(true);
 		setError(null);
 		vscode.postMessage({ type: "readDirectory", requestId: id, uri });
+	}, []);
+
+	const loadChildren = useCallback((uri: string) => {
+		vscode.postMessage({ type: "readChildren", uri });
 	}, []);
 
 	const navigate = useCallback(
@@ -77,6 +79,10 @@ export function App() {
 		[readDirectory],
 	);
 
+	const navigateUp = useCallback(() => {
+		if (parentUri) navigate(parentUri);
+	}, [parentUri, navigate]);
+
 	const openFile = useCallback((uri: string) => {
 		vscode.postMessage({ type: "openFile", uri });
 	}, []);
@@ -85,7 +91,19 @@ export function App() {
 		if (currentUri) {
 			readDirectory(currentUri);
 		}
-	}, [currentUri, readDirectory]);
+		for (const uri of expandedRef.current) loadChildren(uri);
+	}, [currentUri, readDirectory, loadChildren]);
+
+	// Loads each folder the tree newly expanded (again, if it was loaded before: it may have
+	// changed while collapsed and unwatched), and watches the expanded ones.
+	const handleExpandedChange = useCallback(
+		(uris: ReadonlySet<string>) => {
+			for (const uri of uris) if (!expandedRef.current.has(uri)) loadChildren(uri);
+			expandedRef.current = uris;
+			vscode.postMessage({ type: "watchDirectories", uris: [...uris] });
+		},
+		[loadChildren],
+	);
 
 	const handleSort = useCallback((column: SortColumn) => {
 		setSortColumn((prev) => {
@@ -105,8 +123,13 @@ export function App() {
 				case "initialDirectory":
 					navigate(msg.uri);
 					break;
-				case "directoryContents":
+				case "directoryContents": {
 					if (msg.requestId !== requestIdRef.current) return;
+					const previousUri = currentUriRef.current;
+					if (previousUri !== "" && previousUri !== msg.uri) {
+						const previousEntries = entriesRef.current;
+						setLoadedFolders((prev) => new Map(prev).set(previousUri, previousEntries));
+					}
 					setCurrentUri(msg.uri);
 					setEntries(msg.entries);
 					setParentUri(msg.parentUri);
@@ -114,14 +137,24 @@ export function App() {
 					setError(null);
 					setLoading(false);
 					break;
+				}
 				case "directoryError":
 					if (msg.requestId !== requestIdRef.current) return;
 					setError(msg.error);
 					setLoading(false);
 					break;
+				case "childrenContents":
+					setLoadedFolders((prev) => new Map(prev).set(msg.uri, msg.entries));
+					break;
+				case "childrenError":
+					setLoadedFolders((prev) => new Map(prev).set(msg.uri, []));
+					setError(`Could not read folder: ${msg.error}`);
+					break;
 				case "directoryChanged":
 					if (msg.uri === currentUriRef.current) {
 						readDirectory(currentUriRef.current);
+					} else if (loadedFoldersRef.current.has(msg.uri)) {
+						loadChildren(msg.uri);
 					}
 					break;
 			}
@@ -133,28 +166,47 @@ export function App() {
 		return () => window.removeEventListener("message", handler);
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-	const sortedFilteredEntries = useMemo(() => {
-		const filtered = filter
-			? entries.filter((e) => e.name.toLowerCase().includes(filter.toLowerCase()))
-			: entries;
-		return sortEntries(filtered, sortColumn, sortDirection);
-	}, [entries, filter, sortColumn, sortDirection]);
-
 	return (
 		<div className="flex h-screen flex-col py-1">
 			<FilterInput value={filter} onChange={setFilter} />
-			<Breadcrumb segments={breadcrumbs} onNavigate={navigate} />
+			<div className="flex items-center gap-0.5 border-b border-border px-1">
+				<button
+					className={toolbarButtonClass}
+					onClick={navigateUp}
+					disabled={!parentUri}
+					title={mode === "tree" ? "Move root up to parent folder" : "Up to parent folder"}
+				>
+					<CornerLeftUp className="size-3.5" />
+				</button>
+				<Breadcrumb segments={breadcrumbs} onNavigate={navigate} />
+				<button
+					className={toolbarButtonClass}
+					onClick={() => setMode((m) => (m === "flat" ? "tree" : "flat"))}
+					title={mode === "flat" ? "Show as tree" : "Show as list"}
+					aria-pressed={mode === "tree"}
+				>
+					{mode === "flat" ? <ListTree className="size-3.5" /> : <List className="size-3.5" />}
+				</button>
+				<button className={toolbarButtonClass} onClick={refresh} title="Refresh">
+					<RefreshCw className="size-3" />
+				</button>
+			</div>
 			{error && <div className="px-2 py-1 text-[0.9em] text-error-foreground">{error}</div>}
 			<DirectoryView
-				entries={sortedFilteredEntries}
-				parentUri={parentUri}
+				mode={mode}
+				currentUri={currentUri}
+				hasParent={parentUri !== null}
+				entries={entries}
+				loadedFolders={loadedFolders}
+				onExpandedChange={handleExpandedChange}
+				filter={filter}
 				loading={loading}
 				sortColumn={sortColumn}
 				sortDirection={sortDirection}
 				onSort={handleSort}
 				onNavigate={navigate}
+				onNavigateUp={navigateUp}
 				onOpenFile={openFile}
-				onRefresh={refresh}
 			/>
 		</div>
 	);

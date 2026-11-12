@@ -10,6 +10,8 @@ const STAT_CONCURRENCY = 20;
 type IncomingMessage =
 	| { type: "getInitialDirectory" }
 	| { type: "readDirectory"; requestId: number; uri: string }
+	| { type: "readChildren"; uri: string }
+	| { type: "watchDirectories"; uris: string[] }
 	| { type: "openFile"; uri: string };
 
 function isValidMessage(msg: unknown): msg is IncomingMessage {
@@ -20,10 +22,51 @@ function isValidMessage(msg: unknown): msg is IncomingMessage {
 	if (m.type === "readDirectory") {
 		return typeof m.requestId === "number" && typeof m.uri === "string";
 	}
-	if (m.type === "openFile") {
+	if (m.type === "readChildren" || m.type === "openFile") {
 		return typeof m.uri === "string";
 	}
+	if (m.type === "watchDirectories") {
+		return Array.isArray(m.uris) && m.uris.every((uri) => typeof uri === "string");
+	}
 	return false;
+}
+
+function errorMessage(e: unknown): string {
+	return e instanceof vscode.FileSystemError
+		? (e.code ?? e.message)
+		: e instanceof Error
+			? e.message
+			: "Unknown error";
+}
+
+/**
+ * Watches `uri`'s direct entries for creation and deletion (not changes: sizes and dates are
+ * shown as of the last read), calling `onChange` after 300ms without further events. Some
+ * filesystem providers don't support watching; then it watches nothing.
+ */
+function watchDirectory(uri: vscode.Uri, onChange: () => void): vscode.Disposable {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	let watcher: vscode.FileSystemWatcher | undefined;
+	try {
+		watcher = vscode.workspace.createFileSystemWatcher(
+			new vscode.RelativePattern(uri, "*"),
+			false, // create
+			true, // change — ignored
+			false, // delete
+		);
+		const notify = () => {
+			if (timer) clearTimeout(timer);
+			timer = setTimeout(onChange, 300);
+		};
+		watcher.onDidCreate(notify);
+		watcher.onDidDelete(notify);
+	} catch {
+		// Some filesystem providers don't support watching
+	}
+	return new vscode.Disposable(() => {
+		if (timer) clearTimeout(timer);
+		watcher?.dispose();
+	});
 }
 
 function computeParentUri(uri: vscode.Uri): string | null {
@@ -105,8 +148,10 @@ async function statEntries(
 class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 	private currentUri: vscode.Uri | undefined;
 	private latestRequestId = -1;
-	private watcher: vscode.FileSystemWatcher | undefined;
-	private debounceTimer: ReturnType<typeof setTimeout> | undefined;
+	/** Watches the current directory (the list's, or the tree's root). */
+	private rootWatch: vscode.Disposable | undefined;
+	/** Watches the folders expanded in the tree, by URI string. */
+	private folderWatches = new Map<string, vscode.Disposable>();
 
 	constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -128,7 +173,7 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 		});
 
 		webviewView.onDidDispose(() => {
-			this.disposeWatcher();
+			this.disposeWatches();
 		});
 	}
 
@@ -163,7 +208,10 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 					if (msg.requestId !== this.latestRequestId) return;
 
 					this.currentUri = parsed;
-					this.setupWatcher(parsed, webview);
+					this.rootWatch?.dispose();
+					this.rootWatch = watchDirectory(parsed, () =>
+						webview.postMessage({ type: "directoryChanged", uri: parsed.toString() }),
+					);
 
 					webview.postMessage({
 						type: "directoryContents",
@@ -176,18 +224,50 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 				} catch (e: unknown) {
 					if (msg.requestId !== this.latestRequestId) return;
 
-					const error =
-						e instanceof vscode.FileSystemError
-							? (e.code ?? e.message)
-							: e instanceof Error
-								? e.message
-								: "Unknown error";
 					webview.postMessage({
 						type: "directoryError",
 						requestId: msg.requestId,
 						uri: msg.uri,
-						error,
+						error: errorMessage(e),
 					});
+				}
+				break;
+			}
+			// A folder expanded in the tree. Unlike `readDirectory`, several can be in flight at
+			// once, so none is discarded; the reply carries the URI as sent.
+			case "readChildren": {
+				try {
+					const parsed = vscode.Uri.parse(msg.uri, true);
+					const entries = await statEntries(
+						await vscode.workspace.fs.readDirectory(parsed),
+						parsed,
+					);
+					webview.postMessage({ type: "childrenContents", uri: msg.uri, entries });
+				} catch (e: unknown) {
+					webview.postMessage({ type: "childrenError", uri: msg.uri, error: errorMessage(e) });
+				}
+				break;
+			}
+			// The folders expanded in the tree: replaces the set watched besides the root.
+			case "watchDirectories": {
+				const wanted = new Set(msg.uris);
+				for (const [uri, watch] of this.folderWatches) {
+					if (wanted.has(uri)) continue;
+					watch.dispose();
+					this.folderWatches.delete(uri);
+				}
+				for (const uri of wanted) {
+					if (this.folderWatches.has(uri)) continue;
+					let parsed: vscode.Uri;
+					try {
+						parsed = vscode.Uri.parse(uri, true);
+					} catch {
+						continue;
+					}
+					this.folderWatches.set(
+						uri,
+						watchDirectory(parsed, () => webview.postMessage({ type: "directoryChanged", uri })),
+					);
 				}
 				break;
 			}
@@ -208,43 +288,11 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private setupWatcher(uri: vscode.Uri, webview: vscode.Webview): void {
-		this.disposeWatcher();
-		try {
-			const pattern = new vscode.RelativePattern(uri, "*");
-			this.watcher = vscode.workspace.createFileSystemWatcher(
-				pattern,
-				false, // create
-				true, // change — ignored
-				false, // delete
-			);
-
-			const notify = () => {
-				if (this.debounceTimer) clearTimeout(this.debounceTimer);
-				this.debounceTimer = setTimeout(() => {
-					webview.postMessage({
-						type: "directoryChanged",
-						uri: uri.toString(),
-					});
-				}, 300);
-			};
-
-			this.watcher.onDidCreate(notify);
-			this.watcher.onDidDelete(notify);
-		} catch {
-			// Some filesystem providers don't support watching
-		}
-	}
-
-	private disposeWatcher(): void {
-		if (this.debounceTimer) {
-			clearTimeout(this.debounceTimer);
-			this.debounceTimer = undefined;
-		}
-		if (this.watcher) {
-			this.watcher.dispose();
-			this.watcher = undefined;
-		}
+	private disposeWatches(): void {
+		this.rootWatch?.dispose();
+		this.rootWatch = undefined;
+		for (const watch of this.folderWatches.values()) watch.dispose();
+		this.folderWatches.clear();
 	}
 
 	private getHtml(webview: vscode.Webview): string {
@@ -274,7 +322,7 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	dispose(): void {
-		this.disposeWatcher();
+		this.disposeWatches();
 	}
 }
 

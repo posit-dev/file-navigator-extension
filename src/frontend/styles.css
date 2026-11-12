@@ -48,3 +48,50 @@ body {
 	@apply overflow-hidden bg-background font-sans text-foreground;
 	font-size: var(--vscode-font-size, 13px);
 }
+
+/*
+ * The file list (@pierre/trees). The tree draws in its own shadow DOM and reads
+ * `--trees-*-override` variables, which inherit into it. The `--fn-*` spacing variables are
+ * shared with the column header so its labels line up with the row columns: the tree's scroll
+ * area keeps a stable scrollbar gutter, so as long as `--fn-pad` is at least that gutter (6px),
+ * rows end `--fn-pad + --fn-item-pad` from the right edge whether or not it scrolls.
+ */
+.file-list {
+	--fn-pad: 8px;
+	--fn-item-pad: 6px;
+	--fn-gap: 6px;
+	--fn-icon-width: 16px;
+	--fn-column-width: 5.5rem;
+}
+
+.file-list file-tree-container {
+	--trees-bg-override: var(--background);
+	--trees-fg-override: var(--foreground);
+	--trees-fg-muted-override: var(--muted-foreground);
+	--trees-accent-override: var(--focus-border);
+	--trees-bg-muted-override: var(--accent);
+	--trees-selected-bg-override: var(--vscode-list-inactiveSelectionBackground, var(--accent));
+	--trees-selected-fg-override: var(--vscode-list-inactiveSelectionForeground, var(--foreground));
+	--trees-focus-ring-color-override: var(--focus-border);
+	--trees-selected-focused-border-color-override: var(--focus-border);
+	--trees-scrollbar-thumb-override: var(--vscode-scrollbarSlider-background, var(--border));
+	--trees-font-family-override: var(--vscode-font-family, system-ui);
+	--trees-font-size-override: var(--vscode-font-size, 13px);
+	--trees-padding-inline-override: var(--fn-pad);
+	--trees-item-margin-x-override: 0px;
+	--trees-item-padding-x-override: var(--fn-item-pad);
+	--trees-item-row-gap-override: var(--fn-gap);
+	--trees-icon-width-override: var(--fn-icon-width);
+	--trees-border-radius-override: 3px;
+	--truncate-marker-fade-in-duration: 0s;
+}
+
+.file-list file-tree-container:focus-within {
+	--trees-selected-bg-override: var(--selected);
+	--trees-selected-fg-override: var(--selected-foreground);
+}
+
+.file-list-header {
+	padding-left: calc(var(--fn-pad) + var(--fn-item-pad) + var(--fn-icon-width) + var(--fn-gap));
+	padding-right: calc(var(--fn-pad) + var(--fn-item-pad));
+}

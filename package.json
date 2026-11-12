@@ -41,6 +41,7 @@
     "lint": "oxlint -c ../../oxlint.config.json src"
   },
   "devDependencies": {
+    "@pierre/trees": "1.0.0-beta.6",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@types/vscode": "^1.100.0",
