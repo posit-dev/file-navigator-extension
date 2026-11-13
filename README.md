@@ -25,6 +25,7 @@ Run `npm install` first.
 
 ```sh
 npm run build        # Production build
+npm run build -- --metafile  # Also write dist/meta.json, for https://esbuild.github.io/analyze/
 npm run watch        # Watch mode
 npm run check-types  # Type check (server + client)
 npm run lint         # Lint with oxlint

@@ -1,8 +1,11 @@
+import { writeFile } from "node:fs/promises";
 import * as esbuild from "esbuild";
 import tailwindPlugin from "esbuild-plugin-tailwindcss";
 
 const production = process.argv.includes("--production");
 const watch = process.argv.includes("--watch");
+// Write both builds' metafiles, merged, to dist/meta.json (load it in https://esbuild.github.io/analyze/).
+const metafile = process.argv.includes("--metafile");
 
 const baseConfig: esbuild.BuildOptions = {
 	bundle: true,
@@ -52,7 +55,18 @@ async function main() {
 			process.exit(0);
 		});
 	} else {
-		await Promise.all([esbuild.build(extensionConfig), esbuild.build(webviewConfig)]);
+		const results = await Promise.all(
+			[extensionConfig, webviewConfig].map((config) => esbuild.build({ ...config, metafile })),
+		);
+		if (metafile) {
+			const merged: esbuild.Metafile = { inputs: {}, outputs: {} };
+			for (const { metafile: meta } of results) {
+				Object.assign(merged.inputs, meta?.inputs);
+				Object.assign(merged.outputs, meta?.outputs);
+			}
+			await writeFile("dist/meta.json", JSON.stringify(merged));
+			console.log("Wrote dist/meta.json");
+		}
 	}
 }
 

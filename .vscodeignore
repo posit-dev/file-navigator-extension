@@ -1,9 +1,11 @@
-# Everything is bundled into dist/ by esbuild, so ship only dist/, the icon,
-# and the metadata files vsce always includes (package.json, README, LICENSE).
+# Everything is bundled into dist/ by esbuild, so ship only the bundled JS and CSS,
+# the icon, and the metadata files vsce always includes (package.json, README, LICENSE).
+# vsce lets any "!" pattern override every exclude, so list exactly what to keep:
+# this leaves out source maps and dist/meta.json.
 **
-!dist/**
+!dist/**/*.js
+!dist/**/*.css
 !images/**
 !README.md
 !LICENSE*
 !package.json
-dist/**/*.map
