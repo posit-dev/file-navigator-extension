@@ -7,7 +7,6 @@ import {
 	type MouseEvent,
 	type PointerEvent,
 	type ReactNode,
-	type RefObject,
 } from "react";
 
 /** How long the pointer rests on a button before its tooltip shows. */
@@ -19,14 +18,6 @@ const WARM_PERIOD = 300;
 const MARGIN = 4;
 
 let lastHiddenAt = -Infinity;
-
-type TooltipTriggerProps = {
-	ref: RefObject<HTMLButtonElement | null>;
-	onPointerEnter: (e: PointerEvent<HTMLButtonElement>) => void;
-	onPointerLeave: () => void;
-	onFocus: (e: FocusEvent<HTMLButtonElement>) => void;
-	onBlur: () => void;
-};
 
 /**
  * A themed tooltip for a button: shown after a delay on hover, or at once on keyboard focus; hidden
@@ -76,11 +67,13 @@ export function useTooltip(label: string) {
 		setPosition({ left, top: fitsBelow ? below : button.top - MARGIN - tip.height });
 	}, [open, label]);
 
-	const triggerProps: TooltipTriggerProps = {
+	const triggerProps = {
 		ref: buttonRef,
-		onPointerEnter: (e) => e.pointerType === "mouse" && show(false),
+		onPointerEnter: (e: PointerEvent<HTMLButtonElement>) =>
+			e.pointerType === "mouse" && show(false),
 		onPointerLeave: hide,
-		onFocus: (e) => e.currentTarget.matches(":focus-visible") && show(true),
+		onFocus: (e: FocusEvent<HTMLButtonElement>) =>
+			e.currentTarget.matches(":focus-visible") && show(true),
 		onBlur: hide,
 	};
 

@@ -20,14 +20,15 @@ temp/file-navigator/
         ├── main.tsx         # React entry point
         ├── App.tsx          # Root component: state, view mode, message dispatch, saved webview state
         ├── DirectoryView.tsx # Trees model: rows, expansion, focus, inline rename/create, shortcuts, menus
-        ├── columns.tsx      # Column layout (useColumnLayout), header with resize handles, column menu
-        ├── contextMenus.ts  # Entry and empty-space menus; shortcutCommand() maps keys to commands
+        ├── columns.tsx      # Column layout (useColumnLayout), header with resize handles, columnMenuItems
+        ├── contextMenus.ts  # Entry, empty-space, and toolbar "…" (viewMenu) menus; shortcutCommand() maps keys to commands
         ├── Menu.tsx         # VS Code-style context menu (portaled, keyboard nav, type-ahead, checkable items)
         ├── format.ts        # ISO local dates; sizes split into number and unit
-        ├── treeLayout.ts    # Pure: entries + loaded folders → sorted tree paths
+        ├── treeLayout.ts    # Pure: entries + loaded folders → sorted tree paths (foldersFirst, showHidden options)
         ├── Breadcrumb.tsx   # Path bar: current folder as a title, dimmed parent if it fits, ancestor menu
         ├── FilterInput.tsx  # Client-side filter
-        ├── ToolbarButton.tsx # Icon button with a themed, viewport-clamped tooltip
+        ├── ToolbarButton.tsx # Icon button; useTooltip() gives it (and the toggle) a themed, viewport-clamped tooltip
+        ├── ViewModeToggle.tsx # Segmented List | Tree toggle: radiogroup with roving tabindex
         ├── types.ts         # Frontend types (SortColumn, ViewMode), re-exports protocol types
         ├── styles.css       # Tailwind entry + VS Code theme variable mappings
         └── css.d.ts         # TypeScript declaration for CSS imports
@@ -60,13 +61,16 @@ The backend is authoritative for all navigation logic. The frontend never parses
 The frontend is a pure renderer. It receives fully-formed data from the backend and sends back URIs the backend gave it.
 
 - **Rows**: tree paths are relative to the current directory (`name`, `dir/`, `dir/name`), rebuilt from scratch on each change with `resetPaths` (it keeps scroll position). A rebuild waits while a rename input exists (`rebuildDeferred`), so a watcher refresh can't wipe it.
-- **Columns**: rows draw Size and Modified as 4 decoration parts (size number, unit, date, time), styled by `COLUMN_ROW_CSS` and sized by CSS variables from `useColumnLayout`. As the panel narrows the time hides first, then Size, then Modified, keeping names ≥120px. Header handles resize (double-click resets, arrows step 8px); Modified snaps to its date-only/date+time widths. Right-click the header (or the columns button shown when columns are auto-hidden) for the column menu. Column settings and view mode persist via `vscode.setState`.
-- **Menus**: `Menu.tsx` marks itself `data-file-tree-context-menu-root` so the tree treats clicks in it as inside its menu. Entry menu, empty-space folder menu, column menu, and the path bar's ancestor menu all use it.
+- **Columns**: rows draw Size and Modified as 4 decoration parts (size number, unit, date, time), styled by `COLUMN_ROW_CSS` and sized by CSS variables from `useColumnLayout`. As the panel narrows the time hides first, then Size, then Modified, keeping names ≥120px. Header handles resize (double-click resets, arrows step 8px); Modified snaps to its date-only/date+time widths. Right-click the header (or the columns button shown when columns are auto-hidden) for the column menu; its items come from `columnMenuItems(settings, onChange)`, a pure function (text widths are measured once at module level) also used by the "…" menu, so the two can't drift. Column settings, view mode, Folders First, and Show Hidden persist via `vscode.setState` (read once on startup).
+- **Toolbar**: `[Up] [Home]  path bar  [List|Tree] [Refresh] […]`. The "…" (More Actions) menu, built by `viewMenu`, has four unheaded sections: View as List / Tree; the column items; Folders First and Show Hidden Files; Collapse All Folders (tree mode only, through `DirectoryViewHandle.collapseAll()` on `DirectoryView`'s `ref`, which also forgets remembered expansions outside the view). Opened from the keyboard it focuses its first item; on close focus returns to the button.
+- **Menus**: `Menu.tsx` marks itself `data-file-tree-context-menu-root` so the tree treats clicks in it as inside its menu. Entry menu, empty-space folder menu, column menu, the "…" menu, and the path bar's ancestor menu all use it. Menus are flat, with no submenus: a webview menu can't draw past the panel's edge.
+- **Folder icons**: in list mode the tree's chevron is remapped to an `fn-folder` sprite symbol (`model.setIcons` on mode change, since the tree's options are fixed at creation); a rule in `unsafeCSS` keeps it from rotating like a collapsed chevron.
 - **Rename / create**: the tree's `startRenaming(path, { removeIfCanceled })` on a placeholder row; the result is focused via `pendingFocus` by tree path. A new file's parent in tree mode is found through tree paths, never by slicing URIs.
 - **Path bar**: shows the current folder in bold, with the path to it dimmed in front (`~/projects / app`): from home when under it (segments flagged `isHome`), else from `/`. If that doesn't fit, just the parent; then nothing. Each dimmed folder is clickable. Clicking the title opens a menu of every ancestor (current checked). Labels come straight from the backend's breadcrumbs.
 - **Tree mode**: loaded folder contents are kept by URI (`loadedFolders`); expanded folders are tracked by URI, so they survive moving the root. Moving the root up keeps the old root's listing as a loaded, expanded folder. Click toggles a folder; double-click makes it the root.
-- **Sorting**: directories always sort first; within each group (and within each folder in the tree), sortable by name, size, or modified date via column headers
-- **Filtering**: the tree's own search (`hide-non-matches`) over loaded entries
+- **Sorting**: directories sort first unless Folders First is off; within each group (and within each folder in the tree), sortable by name, size, or modified date via column headers (the only sort control)
+- **Hidden files**: with Show Hidden Files off, `layoutTree` drops dot-prefixed names at every level (frontend-only; the Windows hidden attribute is ignored)
+- **Filtering**: the tree's own search (`hide-non-matches`) over loaded entries that are shown (hidden ones are excluded when Show Hidden is off)
 - **Keyboard nav**: the tree's (arrows, type-ahead); Enter on a row is a click; Backspace goes up. Focus follows the same entry across rebuilds. Shortcuts (OS-specific, shown in menus): F2 rename, ⌘⌫/Delete, ⌥⌘C copy path, ⌥⇧⌘C copy relative path, ⌥⌘R reveal, Ctrl+Enter open to the side.
 - **Request IDs**: each `readDirectory` request gets an incrementing ID; stale responses are discarded
 - Navigation only updates state after a successful response; failed reads show an error but keep the current view

@@ -262,7 +262,7 @@ export function DirectoryView({
 				for (const [path, entry] of entriesByPath.current) {
 					if (entry.kind !== "directory") continue;
 					const item = model.getItem(path);
-					if (item !== null && "isExpanded" in item && item.isExpanded() && "collapse" in item) {
+					if (item !== null && "isExpanded" in item && item.isExpanded()) {
 						item.collapse();
 					}
 				}
