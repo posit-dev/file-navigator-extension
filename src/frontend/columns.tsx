@@ -14,7 +14,7 @@ import {
 } from "react";
 
 import { detailsTitle, isoParts, sizeParts } from "./format";
-import { Menu, type MenuSection } from "./Menu";
+import { Menu, type MenuItem, type MenuSection } from "./Menu";
 import { ToolbarButton } from "./ToolbarButton";
 import type { DirectoryEntry, SortColumn, SortDirection } from "./types";
 
@@ -80,27 +80,74 @@ export function useElementWidth(ref: RefObject<HTMLElement | null>): number {
 
 type Metrics = { date: number; time: number; num: number; unit: number };
 
-/** Widths of the column text at the rows' size (0.85em, tabular digits), measured once. */
-function useMetrics(): Metrics {
-	const [metrics, setMetrics] = useState<Metrics>({ date: 64, time: 30, num: 30, unit: 16 });
-	useLayoutEffect(() => {
-		const span = document.createElement("span");
-		span.style.cssText =
-			"position:absolute;visibility:hidden;white-space:pre;font-size:0.85em;font-variant-numeric:tabular-nums";
-		document.body.append(span);
-		const measure = (text: string) => {
-			span.textContent = text;
-			return Math.ceil(span.getBoundingClientRect().width);
-		};
-		setMetrics({
-			date: measure("0000-00-00"),
-			time: measure("00:00"),
-			num: measure("000.0"),
-			unit: measure("KB"),
-		});
-		span.remove();
-	}, []);
-	return metrics;
+let cachedMetrics: Metrics | undefined;
+
+/**
+ * Widths of the column text at the rows' size (0.85em, tabular digits). They don't depend on the
+ * panel, so they're measured once, on first use.
+ */
+function metrics(): Metrics {
+	if (cachedMetrics) return cachedMetrics;
+	const span = document.createElement("span");
+	span.style.cssText =
+		"position:absolute;visibility:hidden;white-space:pre;font-size:0.85em;font-variant-numeric:tabular-nums";
+	document.body.append(span);
+	const measure = (text: string) => {
+		span.textContent = text;
+		return Math.ceil(span.getBoundingClientRect().width);
+	};
+	cachedMetrics = {
+		date: measure("0000-00-00"),
+		time: measure("00:00"),
+		num: measure("000.0"),
+		unit: measure("KB"),
+	};
+	span.remove();
+	return cachedMetrics;
+}
+
+/** Modified column width that shows the date and time. */
+function modifiedFullWidth(m: Metrics): number {
+	return COL_GAP + m.date + TIME_GAP + m.time;
+}
+
+/** The column menu's checkable items, shared by the header menu and the toolbar menu. */
+export function columnMenuItems(
+	settings: ColumnSettings,
+	onChange: (settings: ColumnSettings) => void,
+): MenuItem[] {
+	const update = (patch: Partial<ColumnSettings>) => onChange({ ...settings, ...patch });
+	return [
+		{
+			id: "size",
+			label: "Size Column",
+			checked: settings.size,
+			onSelect: () => update({ size: !settings.size }),
+		},
+		{
+			id: "modified",
+			label: "Modified Column",
+			checked: settings.modified,
+			onSelect: () => update({ modified: !settings.modified }),
+		},
+		{
+			id: "time",
+			label: "Show Time",
+			checked: settings.time,
+			disabled: !settings.modified,
+			// Turning the time on widens a column too narrow to show it.
+			onSelect: () =>
+				settings.time
+					? update({ time: false })
+					: update({
+							time: true,
+							modifiedWidth:
+								settings.modifiedWidth === null
+									? null
+									: Math.max(settings.modifiedWidth, modifiedFullWidth(metrics())),
+						}),
+		},
+	];
 }
 
 export type ColumnLayout = {
@@ -108,12 +155,11 @@ export type ColumnLayout = {
 	modifiedWidth: number;
 	/** The columns hidden to make room for names (not those the user turned off). */
 	autoHidden: ("size" | "modified")[];
-	/** Resize bounds, and the natural width the Modified column snaps to with time shown. */
+	/** Resize bounds. */
 	sizeMin: number;
 	sizeMax: number;
 	modifiedMin: number;
 	modifiedMax: number;
-	modifiedFull: number;
 	snapModified: (width: number) => number;
 	/** For the list element: the rows read their column widths from these. */
 	style: CSSProperties;
@@ -125,10 +171,10 @@ export type ColumnLayout = {
  * narrower than date + time shows just the date.
  */
 export function useColumnLayout(width: number, settings: ColumnSettings): ColumnLayout {
-	const m = useMetrics();
+	const m = metrics();
 	const unitWidth = UNIT_GAP + m.unit + 2;
 	const timeWidth = TIME_GAP + m.time;
-	const modifiedFull = COL_GAP + m.date + timeWidth;
+	const modifiedFull = modifiedFullWidth(m);
 	const modifiedDate = COL_GAP + m.date;
 	const sizeNatural = COL_GAP + m.num + unitWidth;
 
@@ -164,7 +210,6 @@ export function useColumnLayout(width: number, settings: ColumnSettings): Column
 		sizeMax: sizeWidth + slack,
 		modifiedMin: modifiedDate - COL_GAP + 6,
 		modifiedMax: modifiedWidth + slack,
-		modifiedFull,
 		snapModified: (w) =>
 			Math.abs(w - modifiedFull) <= SNAP
 				? modifiedFull
@@ -367,37 +412,7 @@ export function ColumnHeader({
 	const update = (patch: Partial<ColumnSettings>) => onSettingsChange({ ...settings, ...patch });
 
 	const sections: MenuSection[] = [
-		[
-			{
-				id: "size",
-				label: "Size",
-				checked: settings.size,
-				onSelect: () => update({ size: !settings.size }),
-			},
-			{
-				id: "modified",
-				label: "Modified",
-				checked: settings.modified,
-				onSelect: () => update({ modified: !settings.modified }),
-			},
-			{
-				id: "time",
-				label: "Show Time",
-				checked: settings.time,
-				disabled: !settings.modified,
-				// Turning the time on widens a column too narrow to show it.
-				onSelect: () =>
-					settings.time
-						? update({ time: false })
-						: update({
-								time: true,
-								modifiedWidth:
-									settings.modifiedWidth === null
-										? null
-										: Math.max(settings.modifiedWidth, layout.modifiedFull),
-							}),
-			},
-		],
+		columnMenuItems(settings, onSettingsChange),
 		[
 			{
 				id: "reset",

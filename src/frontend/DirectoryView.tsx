@@ -4,8 +4,10 @@ import { clsx } from "clsx";
 import {
 	type KeyboardEvent,
 	type MouseEvent,
+	type Ref,
 	useCallback,
 	useEffect,
+	useImperativeHandle,
 	useRef,
 	useState,
 } from "react";
@@ -60,7 +62,14 @@ export type FileActions = {
 	refresh: () => void;
 };
 
+/** What the parent can ask of the view. */
+export type DirectoryViewHandle = {
+	/** Collapses every folder in the tree, including remembered ones that aren't in view. */
+	collapseAll(): void;
+};
+
 type DirectoryViewProps = {
+	ref?: Ref<DirectoryViewHandle>;
 	mode: ViewMode;
 	/** The directory shown: the list's directory, or the tree's root. */
 	currentUri: string;
@@ -125,6 +134,7 @@ function focusTreeRow(model: { getFileTreeContainer(): HTMLElement | undefined }
 }
 
 export function DirectoryView({
+	ref,
 	mode,
 	currentUri,
 	hasParent,
@@ -239,6 +249,26 @@ export function DirectoryView({
 				}
 			}),
 		[model, syncExpanded, isRenaming],
+	);
+
+	// Forgetting `expandedUris` first matters: it also holds folders outside the current root and
+	// folders hidden by Show Hidden, which would otherwise come back expanded later. The collapses
+	// then reach `syncExpanded` through the model subscription, which reports them.
+	useImperativeHandle(
+		ref,
+		() => ({
+			collapseAll() {
+				expandedUris.current.clear();
+				for (const [path, entry] of entriesByPath.current) {
+					if (entry.kind !== "directory") continue;
+					const item = model.getItem(path);
+					if (item !== null && "isExpanded" in item && item.isExpanded() && "collapse" in item) {
+						item.collapse();
+					}
+				}
+			},
+		}),
+		[model],
 	);
 
 	// The tree's options are fixed at creation, so swap the icons when the mode changes.
