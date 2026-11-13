@@ -61,6 +61,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/wch/file-navigator.git"
+    "url": "https://github.com/posit-dev/file-navigator-extension.git"
   }
 }
