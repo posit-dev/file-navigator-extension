@@ -22,6 +22,10 @@
 	--tooltip: var(--vscode-editorHoverWidget-background, #252526);
 	--tooltip-foreground: var(--vscode-editorHoverWidget-foreground, #cccccc);
 	--tooltip-border: var(--vscode-editorHoverWidget-border, #454545);
+	--toggled: var(
+		--vscode-actionBar-toggledBackground,
+		var(--vscode-inputOption-activeBackground, #2489db82)
+	);
 	--widget-shadow: var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
 }
 
@@ -43,6 +47,7 @@
 	--color-tooltip: var(--tooltip);
 	--color-tooltip-foreground: var(--tooltip-foreground);
 	--color-tooltip-border: var(--tooltip-border);
+	--color-toggled: var(--toggled);
 	--color-menu: var(--vscode-menu-background, #1f1f1f);
 	--color-menu-foreground: var(--vscode-menu-foreground, #cccccc);
 	--color-menu-border: var(--vscode-menu-border, #454545);
