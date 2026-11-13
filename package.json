@@ -1,5 +1,5 @@
 {
-  "name": "@assistant/file-navigator",
+  "name": "file-navigator",
   "publisher": "posit",
   "displayName": "File Navigator",
   "description": "Directory browser sidebar for navigating the filesystem.",
@@ -37,6 +37,7 @@
     "build": "tsx esbuild.ts --production",
     "watch": "tsx esbuild.ts --watch",
     "clean": "rm -rf dist",
+    "package": "npm run check-types && npm run lint && npm run clean && npm run build && vsce package --no-dependencies --skip-license",
     "check-types": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.client.json",
     "lint": "oxlint -c .oxlintrc.json src"
   },
@@ -47,6 +48,7 @@
     "@types/react-dom": "^19.1.2",
     "@types/vscode": "^1.100.0",
     "@types/vscode-webview": "^1.57.5",
+    "@vscode/vsce": "^4.1.1",
     "clsx": "^2.1.1",
     "esbuild": "^0.25.0",
     "esbuild-plugin-tailwindcss": "^2.1.0",

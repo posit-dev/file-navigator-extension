@@ -1,0 +1,9 @@
+# Everything is bundled into dist/ by esbuild, so ship only dist/, the icon,
+# and the metadata files vsce always includes (package.json, README, LICENSE).
+**
+!dist/**
+!images/**
+!README.md
+!LICENSE*
+!package.json
+dist/**/*.map

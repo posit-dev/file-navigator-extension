@@ -19,7 +19,7 @@ The view mode is remembered when the view is hidden and shown again.
 
 ## Development
 
-The package builds against the monorepo's root `node_modules`; it has none of its own.
+Run `npm install` first.
 
 ### Commands
 
@@ -28,6 +28,7 @@ npm run build        # Production build
 npm run watch        # Watch mode
 npm run check-types  # Type check (server + client)
 npm run lint         # Lint with oxlint
+npm run package      # Type check, lint, build, and package a .vsix
 npx oxfmt src        # Format
 ```
 
@@ -38,6 +39,16 @@ positron --extensionDevelopmentPath=/path/to/file-navigator
 ```
 
 After rebuilding, run **Developer: Reload Window** in that window.
+
+### Packaging
+
+`npm run package` writes `file-navigator-<version>.vsix` to the project root. It stops if the type check or lint fails. The .vsix holds only the bundled `dist/` (without source maps), the icon, and the package metadata; `.vscodeignore` controls this. To install it:
+
+```sh
+positron --install-extension file-navigator-0.1.0.vsix   # or: code --install-extension ...
+```
+
+Everything is bundled by esbuild, so all packages are dev dependencies and the .vsix ships no `node_modules`. A dependency that can't be bundled would need to go in `dependencies`, and `--no-dependencies` would have to come out of the `package` script. The script also passes `--skip-license` because the repository has no LICENSE file yet.
 
 ### Architecture
 
