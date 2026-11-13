@@ -12,11 +12,16 @@ temp/file-navigator/
 ├── tsconfig.json            # Composite: references server + client tsconfigs
 ├── tsconfig.server.json     # Backend (extension host, Node)
 ├── tsconfig.client.json     # Frontend (webview, React + JSX)
+├── tsconfig.test.json       # Tests (CommonJS, compiled to out/test)
+├── .vscode-test.mjs         # @vscode/test-cli config: which compiled tests to run, Mocha options
+├── .github/workflows/ci.yml # CI: package job (types, lint, build, .vsix) and test job
 ├── images/
 │   └── icon.svg             # Activity bar icon
 └── src/
     ├── extension.ts         # Backend: WebviewViewProvider, message handling, file watcher, file operations
     ├── protocol.ts          # Types shared by backend and frontend (DirectoryEntry, BreadcrumbSegment, FileAction)
+    ├── test/
+    │   └── extension.test.ts # Integration tests (Mocha TDD UI, run inside VS Code)
     └── frontend/
         ├── main.tsx         # React entry point
         ├── App.tsx          # Root component: state, view mode, message dispatch, saved webview state
@@ -41,6 +46,10 @@ temp/file-navigator/
 - Watch: `npm run watch`
 - Type check: `npm run check-types`
 - Lint: `npm run lint`
+- Test: `npm test` (builds, compiles `src/test` to `out/` with `tsconfig.test.json`, then runs `.vscode-test.mjs`; downloads VS Code into `.vscode-test/` on first run)
+- Package: `npm run package`
+
+CI (`.github/workflows/ci.yml`) runs on pushes to `main` and on pull requests: one job runs `npm run package`, fails if the regenerated `ThirdPartyNotices.txt` differs from the committed one, and uploads the `.vsix`; the other runs `npm test` under `xvfb-run`.
 
 ## Architecture
 
