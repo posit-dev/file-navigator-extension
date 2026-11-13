@@ -13,7 +13,7 @@ import {
 	useState,
 } from "react";
 
-import { detailsTitle, isoParts, sizeParts } from "./format";
+import { detailsTitle, isoParts, shortDate, shortDateSamples, sizeParts } from "./format";
 import { Menu, type MenuItem, type MenuSection } from "./Menu";
 import { ToolbarButton } from "./ToolbarButton";
 import type { DirectoryEntry, SortColumn, SortDirection } from "./types";
@@ -56,10 +56,11 @@ export function parseColumnSettings(value: unknown): ColumnSettings {
 	const v = value as Record<string, unknown>;
 	const bool = (x: unknown, d: boolean) => (typeof x === "boolean" ? x : d);
 	const width = (x: unknown) => (typeof x === "number" && x > 0 ? x : null);
+	const d = DEFAULT_COLUMN_SETTINGS;
 	return {
-		size: bool(v.size, true),
-		modified: bool(v.modified, true),
-		time: bool(v.time, true),
+		size: bool(v.size, d.size),
+		modified: bool(v.modified, d.modified),
+		time: bool(v.time, d.time),
 		sizeWidth: width(v.sizeWidth),
 		modifiedWidth: width(v.modifiedWidth),
 	};
@@ -78,7 +79,7 @@ export function useElementWidth(ref: RefObject<HTMLElement | null>): number {
 	return width;
 }
 
-type Metrics = { date: number; time: number; num: number; unit: number };
+type Metrics = { date: number; time: number; short: number; num: number; unit: number };
 
 let cachedMetrics: Metrics | undefined;
 
@@ -99,6 +100,7 @@ function metrics(): Metrics {
 	cachedMetrics = {
 		date: measure("0000-00-00"),
 		time: measure("00:00"),
+		short: Math.max(...shortDateSamples().map(measure)),
 		num: measure("000.0"),
 		unit: measure("KB"),
 	};
@@ -167,8 +169,9 @@ export type ColumnLayout = {
 
 /**
  * Lays the columns out right to left, then, while the name would be narrower than it can be
- * scanned, gives way in order: first the time, then Size, then Modified. A Modified column
- * narrower than date + time shows just the date.
+ * scanned, gives way in order: first the time, then Size, then the ISO date (for a short one:
+ * see `shortDate`), then Modified. The Modified format follows from its width: date + time if it
+ * fits, else the ISO date if that fits, else the short date.
  */
 export function useColumnLayout(width: number, settings: ColumnSettings): ColumnLayout {
 	const m = metrics();
@@ -176,30 +179,34 @@ export function useColumnLayout(width: number, settings: ColumnSettings): Column
 	const timeWidth = TIME_GAP + m.time;
 	const modifiedFull = modifiedFullWidth(m);
 	const modifiedDate = COL_GAP + m.date;
+	const modifiedShort = COL_GAP + m.short;
 	const sizeNatural = COL_GAP + m.num + unitWidth;
 
 	const available = width - PAD_LEFT - PAD_RIGHT;
 	let modifiedWidth = settings.modified
 		? (settings.modifiedWidth ?? (settings.time ? modifiedFull : modifiedDate))
 		: 0;
-	let timeShown = settings.modified && settings.time && modifiedWidth >= modifiedFull;
 	let sizeWidth = settings.size ? (settings.sizeWidth ?? sizeNatural) : 0;
 	const nameWidth = () => available - modifiedWidth - sizeWidth;
 	const autoHidden: ("size" | "modified")[] = [];
 	if (width > 0) {
-		if (timeShown && nameWidth() < MIN_NAME) {
-			timeShown = false;
+		if (settings.time && modifiedWidth >= modifiedFull && nameWidth() < MIN_NAME) {
 			modifiedWidth = Math.min(modifiedWidth, modifiedDate);
 		}
 		if (sizeWidth > 0 && nameWidth() < MIN_NAME) {
 			sizeWidth = 0;
 			autoHidden.push("size");
 		}
+		if (modifiedWidth > modifiedShort && nameWidth() < MIN_NAME) {
+			modifiedWidth = modifiedShort;
+		}
 		if (modifiedWidth > 0 && nameWidth() < MIN_NAME) {
 			modifiedWidth = 0;
 			autoHidden.push("modified");
 		}
 	}
+	const timeShown = settings.time && modifiedWidth >= modifiedFull;
+	const isoShown = modifiedWidth >= modifiedDate;
 	const slack = Math.max(0, nameWidth() - MIN_NAME);
 
 	return {
@@ -208,29 +215,27 @@ export function useColumnLayout(width: number, settings: ColumnSettings): Column
 		autoHidden,
 		sizeMin: sizeNatural - COL_GAP + 6,
 		sizeMax: sizeWidth + slack,
-		modifiedMin: modifiedDate - COL_GAP + 6,
+		modifiedMin: modifiedShort - COL_GAP + 6,
 		modifiedMax: modifiedWidth + slack,
 		snapModified: (w) =>
-			Math.abs(w - modifiedFull) <= SNAP
-				? modifiedFull
-				: Math.abs(w - modifiedDate) <= SNAP
-					? modifiedDate
-					: w,
+			[modifiedFull, modifiedDate, modifiedShort].find((s) => Math.abs(w - s) <= SNAP) ?? w,
 		style: {
 			"--fn-num-width": `${Math.max(0, sizeWidth - unitWidth)}px`,
 			"--fn-unit-width": `${unitWidth}px`,
 			"--fn-size-display": sizeWidth > 0 ? "inline-block" : "none",
 			"--fn-date-width": `${timeShown ? modifiedWidth - timeWidth : modifiedWidth}px`,
 			"--fn-time-width": `${timeWidth}px`,
-			"--fn-modified-display": modifiedWidth > 0 ? "inline-block" : "none",
+			"--fn-date-display": isoShown ? "inline-block" : "none",
 			"--fn-time-display": timeShown ? "inline-block" : "none",
+			"--fn-short-display": modifiedWidth > 0 && !isoShown ? "inline-block" : "none",
 		} as CSSProperties,
 	};
 }
 
-// Rows draw the columns as four decoration parts (size number, unit, date, time), each a fixed
-// width from the variables above, so they line up with each other and with the header. A display
-// variable of `none` hides a part. All parts use the tree's subtly muted foreground at full opacity.
+// Rows draw the columns as five decoration parts (size number, unit, ISO date, time, short date),
+// each a fixed width from the variables above, so they line up with each other and with the
+// header. A display variable of `none` hides a part; the short date takes the ISO date's width
+// when it's shown instead. All parts use the tree's subtly muted foreground at full opacity.
 export const COLUMN_ROW_CSS = `
 [data-type="item"] { -webkit-user-select: none; user-select: none; }
 [data-item-section="content"] { flex: 1 1 0; }
@@ -248,11 +253,14 @@ export const COLUMN_ROW_CSS = `
 	display: var(--fn-size-display, inline-block);
 }
 [data-item-section="decoration"] > span > span:nth-child(3) {
-	width: var(--fn-date-width); text-align: end; display: var(--fn-modified-display, inline-block);
+	width: var(--fn-date-width); text-align: end; display: var(--fn-date-display, inline-block);
 }
 [data-item-section="decoration"] > span > span:nth-child(4) {
 	width: var(--fn-time-width); text-align: end;
 	display: var(--fn-time-display, inline-block);
+}
+[data-item-section="decoration"] > span > span:nth-child(5) {
+	width: var(--fn-date-width); text-align: end; display: var(--fn-short-display, none);
 }
 `;
 
@@ -267,6 +275,7 @@ export function columnDecoration(entry: DirectoryEntry): FileTreeRowDecoration {
 			{ text: size?.unit ?? "" },
 			{ text: modified?.date ?? "" },
 			{ text: modified?.time ?? "" },
+			{ text: entry.mtime === null ? "" : shortDate(entry.mtime) },
 		],
 	};
 }

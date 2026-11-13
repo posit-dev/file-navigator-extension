@@ -13,6 +13,25 @@ export function isoParts(ms: number): { date: string; time: string; seconds: str
 	};
 }
 
+const MONTH_DAY = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+
+/**
+ * A compact date for narrow columns, at the precision that tells rows apart: the time for today,
+ * the month and day for this year, otherwise the year.
+ */
+export function shortDate(ms: number, now: Date = new Date()): string {
+	const d = new Date(ms);
+	if (d.getFullYear() !== now.getFullYear()) return String(d.getFullYear());
+	if (d.getMonth() !== now.getMonth() || d.getDate() !== now.getDate()) return MONTH_DAY.format(d);
+	return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Strings at least as wide as any `shortDate` result, for sizing its column. */
+export function shortDateSamples(): string[] {
+	const months = Array.from({ length: 12 }, (_, i) => MONTH_DAY.format(new Date(2000, i, 28)));
+	return [...months, "00:00", "0000"];
+}
+
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
 
 /** The size as a number and a unit (1024-based), e.g. `{ num: "47.1", unit: "KB" }`. */

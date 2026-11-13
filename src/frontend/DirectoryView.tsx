@@ -216,6 +216,19 @@ export function DirectoryView({
 	const rebuildDeferred = useRef(false);
 	const [rebuildTick, setRebuildTick] = useState(0);
 
+	// Short dates depend on the day ("14:32" today, "Nov 12" after), so rebuild when it changes.
+	// Polled, not timed to midnight: a timer can fire hours late after the machine sleeps.
+	useEffect(() => {
+		let day = new Date().toDateString();
+		const id = setInterval(() => {
+			const today = new Date().toDateString();
+			if (today === day) return;
+			day = today;
+			setRebuildTick((t) => t + 1);
+		}, 60_000);
+		return () => clearInterval(id);
+	}, []);
+
 	// Reads the expansion of the folders in the tree into `expandedUris` and reports the expanded
 	// ones when that set changed. The tree has no expand event; this runs on each of its changes.
 	const syncExpanded = useCallback(() => {
