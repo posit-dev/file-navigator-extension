@@ -23,20 +23,30 @@ declare function acquireVsCodeApi(): {
 
 const vscode = acquireVsCodeApi();
 
-/** The view mode and column settings saved in the webview state, else the defaults. */
-function savedState(): { mode: ViewMode; columns: ColumnSettings } {
+/** The view mode, column settings, and view options saved in the webview state, else the defaults. */
+function savedState(): {
+	mode: ViewMode;
+	columns: ColumnSettings;
+	foldersFirst: boolean;
+	showHidden: boolean;
+} {
 	const state = vscode.getState();
 	const saved =
 		typeof state === "object" && state !== null ? (state as Record<string, unknown>) : {};
 	return {
 		mode: saved.mode === "tree" ? "tree" : "flat",
 		columns: parseColumnSettings(saved.columns),
+		foldersFirst: typeof saved.foldersFirst === "boolean" ? saved.foldersFirst : true,
+		showHidden: typeof saved.showHidden === "boolean" ? saved.showHidden : true,
 	};
 }
 
 export function App() {
-	const [mode, setMode] = useState<ViewMode>(() => savedState().mode);
-	const [columns, setColumns] = useState<ColumnSettings>(() => savedState().columns);
+	const [saved] = useState(savedState);
+	const [mode, setMode] = useState<ViewMode>(saved.mode);
+	const [columns, setColumns] = useState<ColumnSettings>(saved.columns);
+	const [foldersFirst] = useState<boolean>(saved.foldersFirst);
+	const [showHidden] = useState<boolean>(saved.showHidden);
 	// Where the view starts and the Home button goes: the workspace folder, else the home directory.
 	const [home, setHome] = useState<{ uri: string; isWorkspace: boolean } | null>(null);
 	const [currentUri, setCurrentUri] = useState<string>("");
@@ -63,8 +73,8 @@ export function App() {
 	const expandedRef = useRef<ReadonlySet<string>>(new Set());
 
 	useEffect(() => {
-		vscode.setState({ mode, columns });
-	}, [mode, columns]);
+		vscode.setState({ mode, columns, foldersFirst, showHidden });
+	}, [mode, columns, foldersFirst, showHidden]);
 
 	const readDirectory = useCallback((uri: string) => {
 		const id = ++requestIdRef.current;
@@ -228,6 +238,8 @@ export function App() {
 				onSort={handleSort}
 				columns={columns}
 				onColumnsChange={setColumns}
+				foldersFirst={foldersFirst}
+				showHidden={showHidden}
 				onNavigate={navigate}
 				onNavigateUp={navigateUp}
 				actions={actions}

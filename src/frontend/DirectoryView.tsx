@@ -82,6 +82,10 @@ type DirectoryViewProps = {
 	onSort: (column: SortColumn) => void;
 	columns: ColumnSettings;
 	onColumnsChange: (settings: ColumnSettings) => void;
+	/** Whether directories sort before files (in the tree, within each folder). */
+	foldersFirst: boolean;
+	/** Whether entries whose names start with "." are shown (tree mode hides them at every level). */
+	showHidden: boolean;
 	onNavigate: (uri: string) => void;
 	onNavigateUp: () => void;
 	actions: FileActions;
@@ -134,6 +138,8 @@ export function DirectoryView({
 	onSort,
 	columns,
 	onColumnsChange,
+	foldersFirst,
+	showHidden,
 	onNavigate,
 	onNavigateUp,
 	actions,
@@ -268,6 +274,7 @@ export function DirectoryView({
 			tree ? loadedFolders : NO_CHILDREN,
 			sortColumn,
 			sortDirection,
+			{ foldersFirst, showHidden },
 		);
 		entriesByPath.current = layout.byPath;
 		pathByUri.current = layout.pathByUri;
@@ -317,6 +324,8 @@ export function DirectoryView({
 		loadedFolders,
 		sortColumn,
 		sortDirection,
+		foldersFirst,
+		showHidden,
 		syncExpanded,
 		isRenaming,
 		rebuildTick,
