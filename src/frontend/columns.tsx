@@ -231,7 +231,7 @@ export function useColumnLayout(width: number, settings: ColumnSettings): Column
 // Rows draw the columns as four decoration parts (size number, unit, date, time), each a fixed
 // width from the variables above, so they line up with each other and with the header. A display
 // variable of `none` hides a part. The unit and time are dimmed with opacity so they adapt to
-// selected rows too.
+// selected rows too; the high-contrast setting raises that opacity to 1.
 export const COLUMN_ROW_CSS = `
 [data-type="item"] { -webkit-user-select: none; user-select: none; }
 [data-item-section="content"] { flex: 1 1 0; }
@@ -245,14 +245,14 @@ export const COLUMN_ROW_CSS = `
 	width: var(--fn-num-width); text-align: end; display: var(--fn-size-display, inline-block);
 }
 [data-item-section="decoration"] > span > span:nth-child(2) {
-	width: var(--fn-unit-width); padding-left: ${UNIT_GAP}px; text-align: start; opacity: 0.7;
+	width: var(--fn-unit-width); padding-left: ${UNIT_GAP}px; text-align: start; opacity: var(--fn-secondary-opacity, 0.7);
 	display: var(--fn-size-display, inline-block);
 }
 [data-item-section="decoration"] > span > span:nth-child(3) {
 	width: var(--fn-date-width); text-align: end; display: var(--fn-modified-display, inline-block);
 }
 [data-item-section="decoration"] > span > span:nth-child(4) {
-	width: var(--fn-time-width); text-align: end; opacity: 0.7;
+	width: var(--fn-time-width); text-align: end; opacity: var(--fn-secondary-opacity, 0.7);
 	display: var(--fn-time-display, inline-block);
 }
 `;

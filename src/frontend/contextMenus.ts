@@ -153,6 +153,8 @@ export type ViewMenuOptions = {
 	onFoldersFirstChange: (value: boolean) => void;
 	showHidden: boolean;
 	onShowHiddenChange: (value: boolean) => void;
+	highContrast: boolean;
+	onHighContrastChange: (value: boolean) => void;
 	collapseAll: () => void;
 };
 
@@ -186,6 +188,12 @@ export function viewMenu(o: ViewMenuOptions): MenuSection[] {
 				label: "Show Hidden Files",
 				checked: o.showHidden,
 				onSelect: () => o.onShowHiddenChange(!o.showHidden),
+			},
+			{
+				id: "highContrast",
+				label: "High Contrast Text",
+				checked: o.highContrast,
+				onSelect: () => o.onHighContrastChange(!o.highContrast),
 			},
 		],
 		[

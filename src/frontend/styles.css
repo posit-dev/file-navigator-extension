@@ -3,11 +3,12 @@
 :root {
 	--background: var(--vscode-sideBar-background, #1e1e1e);
 	--foreground: var(--vscode-sideBar-foreground, #cccccc);
-	--muted-foreground: color-mix(
+	--subtle-foreground: color-mix(
 		in srgb,
 		var(--vscode-foreground, #cccccc) 60%,
 		var(--vscode-sideBar-background, #1e1e1e)
 	);
+	--muted-foreground: var(--subtle-foreground);
 	--accent: var(--vscode-list-hoverBackground, #2a2d2e);
 	--accent-foreground: var(--vscode-list-hoverForeground, #cccccc);
 	--selected: var(--vscode-list-activeSelectionBackground, #094771);
@@ -67,6 +68,18 @@ body {
 	font-size: var(--vscode-font-size, 13px);
 }
 
+.file-navigator {
+	--fn-column-foreground: var(--muted-foreground);
+	--fn-secondary-opacity: 0.7;
+}
+
+/* Secondary UI text is full-strength; columns stay subtly muted, without extra opacity. */
+.file-navigator[data-high-contrast="true"] {
+	--muted-foreground: var(--foreground);
+	--fn-column-foreground: var(--subtle-foreground);
+	--fn-secondary-opacity: 1;
+}
+
 /*
  * The file list (@pierre/trees). The tree draws in its own shadow DOM and reads
  * `--trees-*-override` variables, which inherit into it. The `--fn-*` spacing variables are
@@ -84,7 +97,7 @@ body {
 .file-list file-tree-container {
 	--trees-bg-override: var(--background);
 	--trees-fg-override: var(--foreground);
-	--trees-fg-muted-override: var(--muted-foreground);
+	--trees-fg-muted-override: var(--fn-column-foreground);
 	--trees-accent-override: var(--focus-border);
 	--trees-bg-muted-override: var(--accent);
 	--trees-selected-bg-override: var(--vscode-list-inactiveSelectionBackground, var(--accent));

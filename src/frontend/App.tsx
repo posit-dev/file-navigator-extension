@@ -32,6 +32,7 @@ function savedState(): {
 	columns: ColumnSettings;
 	foldersFirst: boolean;
 	showHidden: boolean;
+	highContrast: boolean;
 } {
 	const state = vscode.getState();
 	const saved =
@@ -41,6 +42,7 @@ function savedState(): {
 		columns: parseColumnSettings(saved.columns),
 		foldersFirst: typeof saved.foldersFirst === "boolean" ? saved.foldersFirst : true,
 		showHidden: typeof saved.showHidden === "boolean" ? saved.showHidden : true,
+		highContrast: typeof saved.highContrast === "boolean" ? saved.highContrast : true,
 	};
 }
 
@@ -50,6 +52,7 @@ export function App() {
 	const [columns, setColumns] = useState<ColumnSettings>(saved.columns);
 	const [foldersFirst, setFoldersFirst] = useState<boolean>(saved.foldersFirst);
 	const [showHidden, setShowHidden] = useState<boolean>(saved.showHidden);
+	const [highContrast, setHighContrast] = useState<boolean>(saved.highContrast);
 	// Where the view starts and the Home button goes: the workspace folder, else the home directory.
 	const [home, setHome] = useState<{ uri: string; isWorkspace: boolean } | null>(null);
 	const [currentUri, setCurrentUri] = useState<string>("");
@@ -80,8 +83,8 @@ export function App() {
 	const expandedRef = useRef<ReadonlySet<string>>(new Set());
 
 	useEffect(() => {
-		vscode.setState({ mode, columns, foldersFirst, showHidden });
-	}, [mode, columns, foldersFirst, showHidden]);
+		vscode.setState({ mode, columns, foldersFirst, showHidden, highContrast });
+	}, [mode, columns, foldersFirst, showHidden, highContrast]);
 
 	const readDirectory = useCallback((uri: string) => {
 		const id = ++requestIdRef.current;
@@ -201,7 +204,10 @@ export function App() {
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	return (
-		<div className="flex h-screen flex-col py-1">
+		<div
+			className="file-navigator flex h-screen flex-col py-1"
+			data-high-contrast={highContrast || undefined}
+		>
 			<FilterInput value={filter} onChange={setFilter} />
 			<div className="flex items-center gap-0.5 border-b border-border px-1">
 				<ToolbarButton
@@ -272,6 +278,8 @@ export function App() {
 						onFoldersFirstChange: setFoldersFirst,
 						showHidden,
 						onShowHiddenChange: setShowHidden,
+						highContrast,
+						onHighContrastChange: setHighContrast,
 						collapseAll: () => directoryViewRef.current?.collapseAll(),
 					})}
 					onClose={() => {
