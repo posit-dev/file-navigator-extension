@@ -4,7 +4,7 @@
   "displayName": "File Navigator",
   "description": "Directory browser sidebar for navigating the filesystem.",
   "version": "0.1.0",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -37,7 +37,7 @@
     "build": "tsx esbuild.ts --production",
     "watch": "tsx esbuild.ts --watch",
     "clean": "rm -rf dist",
-    "package": "npm run check-types && npm run lint && npm run clean && npm run build && vsce package --no-dependencies --skip-license",
+    "package": "npm run check-types && npm run lint && npm run clean && npm run build && vsce package --no-dependencies",
     "check-types": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.client.json",
     "lint": "oxlint -c .oxlintrc.json src"
   },

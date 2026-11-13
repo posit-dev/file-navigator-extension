@@ -43,13 +43,13 @@ After rebuilding, run **Developer: Reload Window** in that window.
 
 ### Packaging
 
-`npm run package` writes `file-navigator-<version>.vsix` to the project root. It stops if the type check or lint fails. The .vsix holds only the bundled `dist/` (without source maps), the icon, and the package metadata; `.vscodeignore` controls this. To install it:
+`npm run package` writes `file-navigator-<version>.vsix` to the project root. It stops if the type check or lint fails. The .vsix holds only the bundled `dist/` (without source maps), the icon, the LICENSE, and the package metadata; `.vscodeignore` controls this. To install it:
 
 ```sh
 positron --install-extension file-navigator-0.1.0.vsix   # or: code --install-extension ...
 ```
 
-Everything is bundled by esbuild, so all packages are dev dependencies and the .vsix ships no `node_modules`. A dependency that can't be bundled would need to go in `dependencies`, and `--no-dependencies` would have to come out of the `package` script. The script also passes `--skip-license` because the repository has no LICENSE file yet.
+Everything is bundled by esbuild, so all packages are dev dependencies and the .vsix ships no `node_modules`. A dependency that can't be bundled would need to go in `dependencies`, and `--no-dependencies` would have to come out of the `package` script.
 
 ### Architecture
 
@@ -84,3 +84,7 @@ Extension → Webview:
 ```
 
 Each `readDirectory` carries an increasing `requestId`; stale responses are discarded. `readChildren` responses are never discarded, since several can be in flight.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
