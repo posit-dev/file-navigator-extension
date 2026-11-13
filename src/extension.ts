@@ -3,7 +3,12 @@ import * as path from "path";
 
 import * as vscode from "vscode";
 
-import type { DirectoryEntry, BreadcrumbSegment } from "./protocol";
+import {
+	FILE_ACTIONS,
+	type BreadcrumbSegment,
+	type DirectoryEntry,
+	type FileAction,
+} from "./protocol";
 
 const STAT_CONCURRENCY = 20;
 
@@ -12,7 +17,10 @@ type IncomingMessage =
 	| { type: "readDirectory"; requestId: number; uri: string }
 	| { type: "readChildren"; uri: string }
 	| { type: "watchDirectories"; uris: string[] }
-	| { type: "openFile"; uri: string };
+	| { type: "openFile"; uri: string; toSide?: boolean }
+	| { type: "fileAction"; action: FileAction; uri: string }
+	| { type: "rename"; uri: string; newName: string }
+	| { type: "create"; parentUri: string; name: string; kind: "file" | "directory" };
 
 function isValidMessage(msg: unknown): msg is IncomingMessage {
 	if (typeof msg !== "object" || msg === null) return false;
@@ -22,13 +30,49 @@ function isValidMessage(msg: unknown): msg is IncomingMessage {
 	if (m.type === "readDirectory") {
 		return typeof m.requestId === "number" && typeof m.uri === "string";
 	}
-	if (m.type === "readChildren" || m.type === "openFile") {
+	if (m.type === "readChildren") {
 		return typeof m.uri === "string";
+	}
+	if (m.type === "openFile") {
+		return typeof m.uri === "string" && (m.toSide === undefined || typeof m.toSide === "boolean");
+	}
+	if (m.type === "fileAction") {
+		return typeof m.uri === "string" && FILE_ACTIONS.includes(m.action as FileAction);
+	}
+	if (m.type === "rename") {
+		return typeof m.uri === "string" && typeof m.newName === "string";
+	}
+	if (m.type === "create") {
+		return (
+			typeof m.parentUri === "string" &&
+			typeof m.name === "string" &&
+			(m.kind === "file" || m.kind === "directory")
+		);
 	}
 	if (m.type === "watchDirectories") {
 		return Array.isArray(m.uris) && m.uris.every((uri) => typeof uri === "string");
 	}
 	return false;
+}
+
+function actionVerb(action: FileAction): string {
+	switch (action) {
+		case "reveal":
+			return "reveal";
+		case "openTerminal":
+			return "open a terminal in";
+		case "findInFolder":
+			return "search in";
+		case "copyPath":
+		case "copyRelativePath":
+			return "copy the path of";
+		case "copyName":
+			return "copy the name of";
+		case "duplicate":
+			return "duplicate";
+		case "delete":
+			return "delete";
+	}
 }
 
 function errorMessage(e: unknown): string {
@@ -69,6 +113,57 @@ function watchDirectory(uri: vscode.Uri, onChange: () => void): vscode.Disposabl
 	});
 }
 
+function parseUri(value: string): vscode.Uri | undefined {
+	try {
+		return vscode.Uri.parse(value, true);
+	} catch {
+		return undefined;
+	}
+}
+
+/** Whether `name` can name an entry: not empty, not `.` or `..`, no path separators. */
+function isValidName(name: string): boolean {
+	return name.trim() !== "" && name !== "." && name !== ".." && !/[/\\\0]/.test(name);
+}
+
+function parentOf(uri: vscode.Uri): vscode.Uri {
+	return uri.with({ path: path.posix.dirname(uri.path) });
+}
+
+async function exists(uri: vscode.Uri): Promise<boolean> {
+	try {
+		await vscode.workspace.fs.stat(uri);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+async function isDirectory(uri: vscode.Uri): Promise<boolean> {
+	try {
+		return ((await vscode.workspace.fs.stat(uri)).type & vscode.FileType.Directory) !== 0;
+	} catch {
+		return false;
+	}
+}
+
+/** A free sibling name for a copy: `name copy.ext`, then `name copy 2.ext`, and so on. */
+async function copyTarget(uri: vscode.Uri, directory: boolean): Promise<vscode.Uri> {
+	const parent = parentOf(uri);
+	const name = path.posix.basename(uri.path);
+	const dot = directory ? -1 : name.lastIndexOf(".");
+	const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
+	for (let i = 1; ; i++) {
+		const candidate = vscode.Uri.joinPath(parent, `${stem} copy${i === 1 ? "" : ` ${i}`}${ext}`);
+		if (!(await exists(candidate))) return candidate;
+	}
+}
+
+/** The path to copy: the filesystem path where there is one, else the URI. */
+function copyablePath(uri: vscode.Uri): string {
+	return uri.scheme === "file" || uri.scheme === "vscode-remote" ? uri.fsPath : uri.toString();
+}
+
 function computeParentUri(uri: vscode.Uri): string | null {
 	const parentPath = path.posix.dirname(uri.path);
 	if (parentPath === uri.path) {
@@ -77,17 +172,20 @@ function computeParentUri(uri: vscode.Uri): string | null {
 	return uri.with({ path: parentPath }).toString();
 }
 
+/** Every folder from the root down to `uri`. The user's home folder is labeled `~`. */
 function computeBreadcrumbs(uri: vscode.Uri): BreadcrumbSegment[] {
 	const segments: BreadcrumbSegment[] = [];
+	const home = vscode.Uri.file(os.homedir()).toString();
 	let current = uri;
 
 	while (true) {
 		const parentPath = path.posix.dirname(current.path);
-		const label = path.posix.basename(current.path) || "/";
-		segments.unshift({
-			label,
-			uri: current.toString(),
-		});
+		const uriString = current.toString();
+		if (uriString === home) {
+			segments.unshift({ label: "~", uri: uriString, isHome: true });
+		} else {
+			segments.unshift({ label: path.posix.basename(current.path) || "/", uri: uriString });
+		}
 		if (parentPath === current.path) break;
 		current = current.with({ path: parentPath });
 	}
@@ -284,12 +382,158 @@ class FileNavigatorViewProvider implements vscode.WebviewViewProvider {
 					return;
 				}
 				try {
-					await vscode.window.showTextDocument(parsed);
+					await vscode.window.showTextDocument(
+						parsed,
+						msg.toSide ? { viewColumn: vscode.ViewColumn.Beside } : undefined,
+					);
 				} catch {
 					// File may not be openable as text
 				}
 				break;
 			}
+			case "fileAction": {
+				const uri = parseUri(msg.uri);
+				if (uri) await this.runFileAction(msg.action, uri, webview);
+				break;
+			}
+			case "rename": {
+				const uri = parseUri(msg.uri);
+				if (uri) await this.rename(uri, msg.newName, webview);
+				break;
+			}
+			case "create": {
+				const parent = parseUri(msg.parentUri);
+				if (parent) await this.create(parent, msg.name, msg.kind, webview);
+				break;
+			}
+		}
+	}
+
+	/** Tells the webview a folder's contents changed, without waiting for its watcher. */
+	private notifyChanged(webview: vscode.Webview, directory: vscode.Uri): void {
+		webview.postMessage({ type: "directoryChanged", uri: directory.toString() });
+	}
+
+	private async runFileAction(
+		action: FileAction,
+		uri: vscode.Uri,
+		webview: vscode.Webview,
+	): Promise<void> {
+		const name = path.posix.basename(uri.path);
+		try {
+			switch (action) {
+				case "reveal":
+					await vscode.commands.executeCommand("revealFileInOS", uri);
+					break;
+				case "openTerminal": {
+					const cwd = (await isDirectory(uri)) ? uri : parentOf(uri);
+					vscode.window.createTerminal({ cwd }).show();
+					break;
+				}
+				case "findInFolder":
+					await vscode.commands.executeCommand("workbench.action.findInFiles", {
+						filesToInclude: vscode.workspace.asRelativePath(uri, false),
+					});
+					break;
+				case "copyPath":
+					await vscode.env.clipboard.writeText(copyablePath(uri));
+					break;
+				case "copyRelativePath":
+					await vscode.env.clipboard.writeText(vscode.workspace.asRelativePath(uri, false));
+					break;
+				case "copyName":
+					await vscode.env.clipboard.writeText(name);
+					break;
+				case "duplicate": {
+					const target = await copyTarget(uri, await isDirectory(uri));
+					await vscode.workspace.fs.copy(uri, target, { overwrite: false });
+					this.notifyChanged(webview, parentOf(uri));
+					break;
+				}
+				case "delete":
+					await this.delete(uri, name);
+					this.notifyChanged(webview, parentOf(uri));
+					break;
+			}
+		} catch (e: unknown) {
+			vscode.window.showErrorMessage(
+				`Could not ${actionVerb(action)} '${name}': ${errorMessage(e)}`,
+			);
+		}
+	}
+
+	/** Moves to the trash after confirming; where there's no trash, offers to delete permanently. */
+	private async delete(uri: vscode.Uri, name: string): Promise<void> {
+		const trash = process.platform === "win32" ? "Recycle Bin" : "Trash";
+		const directory = await isDirectory(uri);
+		const confirm = `Move to ${trash}`;
+		const choice = await vscode.window.showWarningMessage(
+			`Are you sure you want to delete '${name}'?`,
+			{
+				modal: true,
+				detail: `You can restore this ${directory ? "folder" : "file"} from the ${trash}.`,
+			},
+			confirm,
+		);
+		if (choice !== confirm) return;
+		try {
+			await vscode.workspace.fs.delete(uri, { recursive: true, useTrash: true });
+		} catch {
+			const permanently = "Delete Permanently";
+			const fallback = await vscode.window.showWarningMessage(
+				`Could not move '${name}' to the ${trash}. Delete it permanently?`,
+				{ modal: true, detail: "This can't be undone." },
+				permanently,
+			);
+			if (fallback !== permanently) return;
+			await vscode.workspace.fs.delete(uri, { recursive: true, useTrash: false });
+		}
+	}
+
+	/**
+	 * Renames as the Explorer does (a workspace edit, so open editors follow the file). The folder
+	 * is refreshed either way: on failure that undoes the name the list already shows.
+	 */
+	private async rename(uri: vscode.Uri, newName: string, webview: vscode.Webview): Promise<void> {
+		const oldName = path.posix.basename(uri.path);
+		const parent = parentOf(uri);
+		try {
+			if (!isValidName(newName)) throw new Error(`'${newName}' is not a valid name`);
+			const target = vscode.Uri.joinPath(parent, newName);
+			// A change of case only names the same entry on case-insensitive filesystems.
+			const caseOnly = newName.toLowerCase() === oldName.toLowerCase();
+			if (!caseOnly && (await exists(target))) throw new Error(`'${newName}' already exists`);
+			const edit = new vscode.WorkspaceEdit();
+			edit.renameFile(uri, target, { overwrite: false });
+			if (!(await vscode.workspace.applyEdit(edit))) throw new Error("the rename was not applied");
+		} catch (e: unknown) {
+			vscode.window.showErrorMessage(`Could not rename '${oldName}': ${errorMessage(e)}`);
+		} finally {
+			this.notifyChanged(webview, parent);
+		}
+	}
+
+	/** Creates an empty file (and opens it, as the Explorer does) or a folder. */
+	private async create(
+		parent: vscode.Uri,
+		name: string,
+		kind: "file" | "directory",
+		webview: vscode.Webview,
+	): Promise<void> {
+		try {
+			if (!isValidName(name)) throw new Error(`'${name}' is not a valid name`);
+			const target = vscode.Uri.joinPath(parent, name);
+			if (await exists(target)) throw new Error(`'${name}' already exists`);
+			if (kind === "directory") {
+				await vscode.workspace.fs.createDirectory(target);
+			} else {
+				await vscode.workspace.fs.writeFile(target, new Uint8Array());
+				await vscode.window.showTextDocument(target, { preview: false });
+			}
+		} catch (e: unknown) {
+			vscode.window.showErrorMessage(`Could not create '${name}': ${errorMessage(e)}`);
+		} finally {
+			this.notifyChanged(webview, parent);
 		}
 	}
 

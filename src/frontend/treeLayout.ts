@@ -35,10 +35,13 @@ function sortEntries(
 	entries: readonly DirectoryEntry[],
 	column: SortColumn,
 	direction: SortDirection,
+	foldersFirst: boolean,
 ): DirectoryEntry[] {
 	return [...entries].sort((a, b) => {
-		if (a.kind === "directory" && b.kind !== "directory") return -1;
-		if (a.kind !== "directory" && b.kind === "directory") return 1;
+		if (foldersFirst) {
+			if (a.kind === "directory" && b.kind !== "directory") return -1;
+			if (a.kind !== "directory" && b.kind === "directory") return 1;
+		}
 		return compareEntries(a, b, column, direction);
 	});
 }
@@ -46,17 +49,19 @@ function sortEntries(
 /**
  * Lays out the root's entries, and inside each directory the entries `children` has for its URI
  * (none for a flat list). Tree paths are relative to the root: a name, with a trailing slash for
- * a directory, under its parent's path.
+ * a directory, under its parent's path. Directories sort before files unless `foldersFirst` is
+ * false.
  */
 export function layoutTree(
 	rootEntries: readonly DirectoryEntry[],
 	children: ReadonlyMap<string, readonly DirectoryEntry[]>,
 	column: SortColumn,
 	direction: SortDirection,
+	{ foldersFirst = true }: { foldersFirst?: boolean } = {},
 ): TreeLayout {
 	const layout: TreeLayout = { paths: [], byPath: new Map(), pathByUri: new Map() };
 	const walk = (entries: readonly DirectoryEntry[], prefix: string) => {
-		for (const entry of sortEntries(entries, column, direction)) {
+		for (const entry of sortEntries(entries, column, direction, foldersFirst)) {
 			const directory = entry.kind === "directory";
 			const path = `${prefix}${entry.name}${directory ? "/" : ""}`;
 			layout.paths.push(path);

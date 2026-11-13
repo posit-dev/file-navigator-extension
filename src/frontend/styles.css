@@ -43,6 +43,12 @@
 	--color-tooltip: var(--tooltip);
 	--color-tooltip-foreground: var(--tooltip-foreground);
 	--color-tooltip-border: var(--tooltip-border);
+	--color-menu: var(--vscode-menu-background, #1f1f1f);
+	--color-menu-foreground: var(--vscode-menu-foreground, #cccccc);
+	--color-menu-border: var(--vscode-menu-border, #454545);
+	--color-menu-selection: var(--vscode-menu-selectionBackground, #0078d4);
+	--color-menu-selection-foreground: var(--vscode-menu-selectionForeground, #ffffff);
+	--color-menu-separator: var(--vscode-menu-separatorBackground, #454545);
 	--font-sans:
 		var(--vscode-font-family, system-ui), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -68,7 +74,6 @@ body {
 	--fn-item-pad: 6px;
 	--fn-gap: 6px;
 	--fn-icon-width: 16px;
-	--fn-column-width: 5.5rem;
 }
 
 .file-list file-tree-container {
@@ -101,4 +106,19 @@ body {
 .file-list-header {
 	padding-left: calc(var(--fn-pad) + var(--fn-item-pad) + var(--fn-icon-width) + var(--fn-gap));
 	padding-right: calc(var(--fn-pad) + var(--fn-item-pad));
+}
+
+/* Column dividers: accented on hover after a short delay (as VS Code's sashes), at once when
+ * dragged or focused. */
+.fn-column-handle > span {
+	transition: background-color 150ms ease-out;
+}
+.fn-column-handle:hover > span {
+	background-color: var(--vscode-sash-hoverBorder, var(--focus-border));
+	transition-delay: 120ms;
+}
+.fn-column-handle[data-dragging] > span,
+.fn-column-handle:focus-visible > span {
+	background-color: var(--vscode-sash-hoverBorder, var(--focus-border));
+	transition-delay: 0ms;
 }

@@ -1,9 +1,26 @@
-import { type FileTreeRowDecoration, preparePresortedFileTreeInput } from "@pierre/trees";
+import { preparePresortedFileTreeInput } from "@pierre/trees";
 import { FileTree, useFileTree, useFileTreeSearch } from "@pierre/trees/react";
 import { clsx } from "clsx";
-import { ArrowDown, ArrowUp } from "lucide-react";
-import { type KeyboardEvent, type MouseEvent, useCallback, useEffect, useRef } from "react";
+import {
+	type KeyboardEvent,
+	type MouseEvent,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 
+import type { FileAction } from "../protocol";
+import {
+	ColumnHeader,
+	type ColumnSettings,
+	COLUMN_ROW_CSS,
+	columnDecoration,
+	useColumnLayout,
+	useElementWidth,
+} from "./columns";
+import { entryMenu, folderMenu, type MenuCommands, shortcutCommand } from "./contextMenus";
+import { Menu } from "./Menu";
 import { layoutTree } from "./treeLayout";
 import type { DirectoryEntry, SortColumn, SortDirection, ViewMode } from "./types";
 
@@ -18,6 +35,15 @@ const SPRITE = `<svg aria-hidden="true" width="0" height="0">
 <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14 9 9 4 4 9M20 20h-7a4 4 0 0 1-4-4V4"/>
 </symbol>
 </svg>`;
+
+/** What the list asks the backend to do. URIs are always ones the backend sent. */
+export type FileActions = {
+	open: (uri: string, toSide?: boolean) => void;
+	rename: (uri: string, newName: string) => void;
+	create: (parentUri: string, name: string, kind: "file" | "directory") => void;
+	run: (action: FileAction, uri: string) => void;
+	refresh: () => void;
+};
 
 type DirectoryViewProps = {
 	mode: ViewMode;
@@ -39,73 +65,14 @@ type DirectoryViewProps = {
 	sortColumn: SortColumn;
 	sortDirection: SortDirection;
 	onSort: (column: SortColumn) => void;
+	columns: ColumnSettings;
+	onColumnsChange: (settings: ColumnSettings) => void;
 	onNavigate: (uri: string) => void;
 	onNavigateUp: () => void;
-	onOpenFile: (uri: string) => void;
+	actions: FileActions;
 };
 
 const ROW_HEIGHT = 22;
-
-// Rules the tree's CSS variables cannot express; they go into its shadow root above its own CSS.
-// The decoration lane holds the Size and Modified columns: one span per part, each a fixed
-// width, so they line up down the list and with the header (`.file-list-header`). The name
-// takes the remaining space and truncates instead of squeezing the columns.
-const UNSAFE_CSS = `
-[data-type="item"] {
-	-webkit-user-select: none;
-	user-select: none;
-}
-[data-item-section="content"] {
-	flex: 1 1 0;
-}
-[data-item-section="decoration"] {
-	flex: none;
-	font-size: 0.85em;
-}
-[data-item-section="decoration"] > span > span {
-	width: var(--fn-column-width);
-	text-align: end;
-	font-variant-numeric: tabular-nums;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-`;
-
-function formatSize(bytes: number | null): string {
-	if (bytes === null) return "";
-	if (bytes < 1024) return `${bytes} B`;
-	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-	if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-	return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-function formatDate(mtime: number | null): string {
-	if (mtime === null) return "";
-	const date = new Date(mtime);
-	const now = new Date();
-	const sameYear = date.getFullYear() === now.getFullYear();
-	if (sameYear) {
-		return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-	}
-	return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-
-function decorationFor(entry: DirectoryEntry): FileTreeRowDecoration {
-	const size = entry.kind === "directory" ? "" : formatSize(entry.size);
-	const modified = formatDate(entry.mtime);
-	const details = [
-		entry.isSymbolicLink ? "Symbolic link" : null,
-		entry.kind !== "directory" && entry.size !== null
-			? `${entry.size.toLocaleString()} bytes`
-			: null,
-		entry.mtime !== null ? `Modified ${new Date(entry.mtime).toLocaleString()}` : null,
-	].filter((detail) => detail !== null);
-	return {
-		text: `${size} ${modified}`.trim(),
-		title: details.length > 0 ? details.join("\n") : undefined,
-		parts: [{ text: size }, { text: modified }],
-	};
-}
 
 /** The tree path of the row an event came from, if any. */
 function eventRowPath(event: { nativeEvent: Event }): string | undefined {
@@ -117,6 +84,18 @@ function eventRowPath(event: { nativeEvent: Event }): string | undefined {
 	return undefined;
 }
 
+/** Whether a key event was typed into a text field (the tree's rename input, inside its shadow DOM). */
+function fromTextInput(event: { nativeEvent: Event }): boolean {
+	const origin = event.nativeEvent.composedPath()[0];
+	return origin instanceof HTMLInputElement || origin instanceof HTMLTextAreaElement;
+}
+
+/** A tree path's last segment: the entry's name. */
+function lastSegment(path: string): string {
+	const trimmed = path.endsWith("/") ? path.slice(0, -1) : path;
+	return trimmed.slice(trimmed.lastIndexOf("/") + 1);
+}
+
 /** Focuses the tree's focused row (its roving tab stop), else its first row. */
 function focusTreeRow(model: { getFileTreeContainer(): HTMLElement | undefined }): void {
 	const root = model.getFileTreeContainer()?.shadowRoot;
@@ -124,58 +103,6 @@ function focusTreeRow(model: { getFileTreeContainer(): HTMLElement | undefined }
 		root?.querySelector<HTMLElement>("[data-type='item'][tabindex='0']") ??
 		root?.querySelector<HTMLElement>("[data-type='item']");
 	row?.focus();
-}
-
-function SortIndicator({
-	column,
-	sortColumn,
-	sortDirection,
-}: {
-	column: SortColumn;
-	sortColumn: SortColumn;
-	sortDirection: SortDirection;
-}) {
-	if (column !== sortColumn) return null;
-	return sortDirection === "asc" ? (
-		<ArrowUp className="size-3 shrink-0" />
-	) : (
-		<ArrowDown className="size-3 shrink-0" />
-	);
-}
-
-function ColumnHeader({
-	sortColumn,
-	sortDirection,
-	onSort,
-}: {
-	sortColumn: SortColumn;
-	sortDirection: SortDirection;
-	onSort: (column: SortColumn) => void;
-}) {
-	const buttonClass = "flex items-center gap-0.5 cursor-pointer select-none hover:text-foreground";
-	const indicator = { sortColumn, sortDirection };
-	return (
-		<div className="file-list-header flex h-[22px] shrink-0 items-center border-b border-border text-[0.85em] text-muted-foreground">
-			<button className={clsx(buttonClass, "min-w-0 flex-1")} onClick={() => onSort("name")}>
-				Name
-				<SortIndicator column="name" {...indicator} />
-			</button>
-			<button
-				className={clsx(buttonClass, "w-(--fn-column-width) justify-end")}
-				onClick={() => onSort("size")}
-			>
-				Size
-				<SortIndicator column="size" {...indicator} />
-			</button>
-			<button
-				className={clsx(buttonClass, "w-(--fn-column-width) justify-end")}
-				onClick={() => onSort("mtime")}
-			>
-				Modified
-				<SortIndicator column="mtime" {...indicator} />
-			</button>
-		</div>
-	);
 }
 
 export function DirectoryView({
@@ -190,13 +117,17 @@ export function DirectoryView({
 	sortColumn,
 	sortDirection,
 	onSort,
+	columns,
+	onColumnsChange,
 	onNavigate,
 	onNavigateUp,
-	onOpenFile,
+	actions,
 }: DirectoryViewProps) {
-	// The entries by tree path, read by the decoration renderer (the tree's options are fixed
-	// when the model is created, so it reads the current entries through this ref).
+	// The entries by tree path (and back), read by the decoration renderer and event handlers (the
+	// tree's options are fixed when the model is created, so it reads the current ones through refs).
 	const entriesByPath = useRef(new Map<string, DirectoryEntry>());
+	const pathByUri = useRef(new Map<string, string>());
+	const onRenameRef = useRef<(source: string, destination: string) => void>(() => {});
 
 	const { model } = useFileTree({
 		paths: [],
@@ -208,14 +139,21 @@ export function DirectoryView({
 			byFileName: { [PARENT_PATH]: "fn-parent" },
 		},
 		fileTreeSearchMode: "hide-non-matches",
-		unsafeCSS: UNSAFE_CSS,
+		unsafeCSS: COLUMN_ROW_CSS,
+		renaming: {
+			canRename: (item) => item.path !== PARENT_PATH,
+			onRename: (event) => onRenameRef.current(event.sourcePath, event.destinationPath),
+		},
+		composition: { contextMenu: { enabled: true, triggerMode: "right-click" } },
 		renderRowDecoration: ({ item }) => {
 			const entry = entriesByPath.current.get(item.path);
-			return entry ? decorationFor(entry) : null;
+			return entry ? columnDecoration(entry) : null;
 		},
 	});
 
 	const listRef = useRef<HTMLDivElement>(null);
+	const width = useElementWidth(listRef);
+	const layout = useColumnLayout(width, columns);
 	const shownUri = useRef<string | null>(null);
 	const modeRef = useRef(mode);
 	modeRef.current = mode;
@@ -223,12 +161,32 @@ export function DirectoryView({
 	filterRef.current = filter;
 	const onExpandedChangeRef = useRef(onExpandedChange);
 	onExpandedChangeRef.current = onExpandedChange;
+	const [folderMenuAt, setFolderMenuAt] = useState<{ x: number; y: number } | null>(null);
 
 	// Which folders are expanded, by URI, so it survives the tree being rebuilt with different
 	// paths (a new root). Folders outside the current root keep their state for when they return.
 	const expandedUris = useRef(new Set<string>());
 	const resetting = useRef(false);
 	const reported = useRef<string | null>(null);
+
+	// A placeholder row being named (New File/Folder), and the row to focus once a rebuild shows
+	// it (a created or renamed entry, by tree path without a trailing slash).
+	const pendingCreate = useRef<{
+		path: string;
+		parentUri: string;
+		kind: "file" | "directory";
+	} | null>(null);
+	const pendingFocus = useRef<string | null>(null);
+
+	// Rebuilding the rows would drop an inline rename in progress (say, when a watched folder
+	// changes meanwhile), so rebuilds wait until it ends, then run.
+	const isRenaming = useCallback(
+		() =>
+			model.getFileTreeContainer()?.shadowRoot?.querySelector("[data-item-rename-input]") != null,
+		[model],
+	);
+	const rebuildDeferred = useRef(false);
+	const [rebuildTick, setRebuildTick] = useState(0);
 
 	// Reads the expansion of the folders in the tree into `expandedUris` and reports the expanded
 	// ones when that set changed. The tree has no expand event; this runs on each of its changes.
@@ -257,15 +215,24 @@ export function DirectoryView({
 			model.subscribe(() => {
 				// Mid-reset the tree may not have the new paths yet; the reset syncs afterwards.
 				if (!resetting.current) syncExpanded();
+				if (rebuildDeferred.current && !isRenaming()) {
+					rebuildDeferred.current = false;
+					setRebuildTick((t) => t + 1);
+				}
 			}),
-		[model, syncExpanded],
+		[model, syncExpanded, isRenaming],
 	);
 
 	// Rebuilds the rows. Expanded folders stay expanded; after moving the root up, the folder
 	// just left is expanded too, so it shows where you came from. If the list had keyboard focus,
-	// it keeps it: on the same entry if it is still shown, else on the directory just left, else
-	// on the first row; an empty directory focuses the list itself, so Backspace still works.
+	// it keeps it: on a just created or renamed entry, else the same entry if it is still shown,
+	// else the directory just left, else the first row; an empty directory focuses the list itself,
+	// so Backspace still works.
 	useEffect(() => {
+		if (isRenaming()) {
+			rebuildDeferred.current = true;
+			return;
+		}
 		const active = document.activeElement;
 		const hadFocus =
 			active !== null && (active === model.getFileTreeContainer() || active === listRef.current);
@@ -276,6 +243,7 @@ export function DirectoryView({
 		const tree = mode === "tree";
 		const previousUri = shownUri.current;
 		shownUri.current = currentUri;
+		if (previousUri !== currentUri) pendingFocus.current = null;
 		if (tree && previousUri !== null && previousUri !== currentUri) {
 			expandedUris.current.add(previousUri);
 		}
@@ -287,6 +255,7 @@ export function DirectoryView({
 			sortDirection,
 		);
 		entriesByPath.current = layout.byPath;
+		pathByUri.current = layout.pathByUri;
 		const initialExpandedPaths = tree
 			? [...expandedUris.current].flatMap((uri) => layout.pathByUri.get(uri) ?? [])
 			: [];
@@ -303,6 +272,14 @@ export function DirectoryView({
 		model.setSearch(filterRef.current.trim() === "" ? null : filterRef.current);
 		syncExpanded();
 
+		const wanted = pendingFocus.current;
+		const wantedPath =
+			wanted === null ? undefined : [wanted, `${wanted}/`].find((p) => layout.byPath.has(p));
+		if (wantedPath !== undefined) {
+			pendingFocus.current = null;
+			model.focusPath(wantedPath);
+			return;
+		}
 		if (!hadFocus) return;
 		if (paths.length === 0) {
 			listRef.current?.focus();
@@ -326,18 +303,92 @@ export function DirectoryView({
 		sortColumn,
 		sortDirection,
 		syncExpanded,
+		isRenaming,
+		rebuildTick,
 	]);
 
 	useEffect(() => {
 		model.setSearch(filter.trim() === "" ? null : filter);
 	}, [model, filter]);
 
+	// A rename (or a placeholder's first name) was entered. The tree has already shown it; the
+	// backend does it, and the folder's refresh then shows the result, focused.
+	onRenameRef.current = (source, destination) => {
+		const name = lastSegment(destination);
+		const pending = pendingCreate.current;
+		// Folder paths may come with or without their trailing slash.
+		const trim = (path: string) => path.replace(/\/$/, "");
+		if (pending !== null && trim(pending.path) === trim(source)) {
+			pendingCreate.current = null;
+			if (name === "") return;
+			pendingFocus.current = destination.replace(/\/$/, "");
+			actions.create(pending.parentUri, name, pending.kind);
+			return;
+		}
+		const entry = entriesByPath.current.get(source);
+		if (!entry || name === "" || name === entry.name) return;
+		pendingFocus.current = destination.replace(/\/$/, "");
+		actions.rename(entry.uri, name);
+	};
+
+	const startRename = useCallback(
+		(entry: DirectoryEntry) => {
+			const path = pathByUri.current.get(entry.uri);
+			if (path !== undefined) model.startRenaming(path);
+		},
+		[model],
+	);
+
+	// Adds a placeholder row and starts naming it: in the current directory, or in the tree, in
+	// the folder `near` is (or in `near`, an expanded folder, which this expands).
+	const startCreate = useCallback(
+		(kind: "file" | "directory", near: DirectoryEntry | undefined) => {
+			let parentUri = currentUri;
+			let prefix = "";
+			const nearPath = near === undefined ? undefined : pathByUri.current.get(near.uri);
+			if (modeRef.current === "tree" && near !== undefined && nearPath !== undefined) {
+				if (near.kind === "directory") {
+					parentUri = near.uri;
+					prefix = nearPath;
+					const item = model.getItem(nearPath);
+					if (item !== null && "expand" in item) item.expand();
+				} else {
+					prefix = nearPath.slice(0, nearPath.lastIndexOf("/") + 1);
+					parentUri =
+						prefix === "" ? currentUri : (entriesByPath.current.get(prefix)?.uri ?? currentUri);
+				}
+			}
+			const siblings = parentUri === currentUri ? entries : (loadedFolders.get(parentUri) ?? []);
+			const taken = new Set(siblings.map((entry) => entry.name));
+			const base = kind === "file" ? "untitled" : "New Folder";
+			let name = base;
+			for (let i = 2; taken.has(name); i++) name = `${base} ${i}`;
+			const path = `${prefix}${name}${kind === "directory" ? "/" : ""}`;
+			model.add(path);
+			pendingCreate.current = { path, parentUri, kind };
+			// After the tree has drawn the row.
+			setTimeout(() => model.startRenaming(path, { removeIfCanceled: true }), 0);
+		},
+		[model, currentUri, entries, loadedFolders],
+	);
+
+	const commands: MenuCommands = {
+		mode,
+		open: (entry, toSide) => actions.open(entry.uri, toSide),
+		navigate: onNavigate,
+		run: actions.run,
+		rename: startRename,
+		create: startCreate,
+		refresh: actions.refresh,
+	};
+
 	// A file opens on click, and `..` goes up. A folder in the list opens on click; in the tree a
 	// click expands or collapses it (the tree does that itself) and a double-click makes it the
 	// root.
 	const onClick = useCallback(
 		(event: MouseEvent<HTMLElement>) => {
-			if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+			const modified = event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+			if (modified || event.button !== 0) return;
 			const path = eventRowPath(event);
 			if (path === PARENT_PATH) {
 				onNavigateUp();
@@ -345,10 +396,10 @@ export function DirectoryView({
 			}
 			const entry = path === undefined ? undefined : entriesByPath.current.get(path);
 			if (!entry) return;
-			if (entry.kind !== "directory") onOpenFile(entry.uri);
+			if (entry.kind !== "directory") actions.open(entry.uri);
 			else if (modeRef.current === "flat") onNavigate(entry.uri);
 		},
-		[onNavigate, onNavigateUp, onOpenFile],
+		[onNavigate, onNavigateUp, actions],
 	);
 
 	const onDoubleClick = useCallback(
@@ -360,15 +411,30 @@ export function DirectoryView({
 		[onNavigate],
 	);
 
-	// Rows are buttons, so Enter (and Space) on a row arrives as a click; only Backspace needs a
-	// key handler. It sits on the list, not the tree, so it works in an empty directory too.
+	// Rows are buttons, so Enter (and Space) on a row arrives as a click, and the tree handles F2.
+	// Backspace goes up; it's handled on the list, not the tree, so it works in an empty directory
+	// too. The menu's shortcuts act on the focused row. Keys typed into the rename input bubble
+	// out of the tree as well; those are left alone.
 	const onKeyDown = useCallback(
 		(event: KeyboardEvent<HTMLElement>) => {
-			if (event.key !== "Backspace") return;
+			if (fromTextInput(event)) return;
+			if (event.key === "Backspace" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+				event.preventDefault();
+				onNavigateUp();
+				return;
+			}
+			const command = shortcutCommand(event);
+			const focusedPath = model.getFocusedPath();
+			const entry = focusedPath === null ? undefined : entriesByPath.current.get(focusedPath);
+			if (command === null || entry === undefined) return;
 			event.preventDefault();
-			onNavigateUp();
+			if (command === "openToSide") {
+				if (entry.kind !== "directory") actions.open(entry.uri, true);
+			} else {
+				actions.run(command, entry.uri);
+			}
 		},
-		[onNavigateUp],
+		[onNavigateUp, actions, model],
 	);
 
 	// With no match the tree would show every row (it filters only when something matches).
@@ -389,12 +455,26 @@ export function DirectoryView({
 
 	return (
 		<div
-			className="file-list flex min-h-0 flex-1 flex-col outline-none"
+			className="file-list relative flex min-h-0 flex-1 flex-col outline-none"
 			ref={listRef}
+			style={layout.style}
 			tabIndex={-1}
 			onKeyDown={onKeyDown}
+			onContextMenu={(event) => {
+				// Rows have their own menu; the empty space below them is the folder's.
+				if (eventRowPath(event) !== undefined || currentUri === "") return;
+				event.preventDefault();
+				setFolderMenuAt({ x: event.clientX, y: event.clientY });
+			}}
 		>
-			<ColumnHeader sortColumn={sortColumn} sortDirection={sortDirection} onSort={onSort} />
+			<ColumnHeader
+				layout={layout}
+				settings={columns}
+				onSettingsChange={onColumnsChange}
+				sortColumn={sortColumn}
+				sortDirection={sortDirection}
+				onSort={onSort}
+			/>
 			{note && <div className="p-2 text-center text-muted-foreground">{note}</div>}
 			{/* Kept laid out (not display: none) so the virtual list keeps its measured size. */}
 			<FileTree
@@ -402,7 +482,39 @@ export function DirectoryView({
 				model={model}
 				onClick={onClick}
 				onDoubleClick={onDoubleClick}
+				renderContextMenu={(item, context) => {
+					const entry = entriesByPath.current.get(item.path);
+					if (!entry) return <CloseNow close={context.close} />;
+					// From the keyboard (Shift+F10) the anchor is the row; from the mouse, the pointer.
+					const rect = context.anchorRect;
+					const fromKeyboard = rect.width > 0;
+					return (
+						<Menu
+							label={entry.name}
+							sections={entryMenu(entry, commands)}
+							x={fromKeyboard ? rect.left + 24 : rect.left}
+							y={fromKeyboard ? rect.bottom : rect.top}
+							focusFirst={fromKeyboard}
+							onClose={() => context.close()}
+						/>
+					);
+				}}
 			/>
+			{folderMenuAt && (
+				<Menu
+					label="Folder"
+					sections={folderMenu(currentUri, commands)}
+					x={folderMenuAt.x}
+					y={folderMenuAt.y}
+					onClose={() => setFolderMenuAt(null)}
+				/>
+			)}
 		</div>
 	);
+}
+
+/** Tells the tree its menu is closed at once: for rows without one, like `..`. */
+function CloseNow({ close }: { close: () => void }) {
+	useEffect(() => close(), [close]);
+	return null;
 }

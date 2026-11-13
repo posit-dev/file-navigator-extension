@@ -1,8 +1,10 @@
 import { CornerLeftUp, House, List, ListTree, RefreshCw } from "lucide-react";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
+import type { FileAction } from "../protocol";
 import { Breadcrumb } from "./Breadcrumb";
-import { DirectoryView } from "./DirectoryView";
+import { type ColumnSettings, parseColumnSettings } from "./columns";
+import { DirectoryView, type FileActions } from "./DirectoryView";
 import { FilterInput } from "./FilterInput";
 import { ToolbarButton } from "./ToolbarButton";
 import type {
@@ -21,16 +23,20 @@ declare function acquireVsCodeApi(): {
 
 const vscode = acquireVsCodeApi();
 
-/** The view mode saved in the webview state, else the flat list. */
-function savedMode(): ViewMode {
+/** The view mode and column settings saved in the webview state, else the defaults. */
+function savedState(): { mode: ViewMode; columns: ColumnSettings } {
 	const state = vscode.getState();
-	return typeof state === "object" && state !== null && "mode" in state && state.mode === "tree"
-		? "tree"
-		: "flat";
+	const saved =
+		typeof state === "object" && state !== null ? (state as Record<string, unknown>) : {};
+	return {
+		mode: saved.mode === "tree" ? "tree" : "flat",
+		columns: parseColumnSettings(saved.columns),
+	};
 }
 
 export function App() {
-	const [mode, setMode] = useState<ViewMode>(savedMode);
+	const [mode, setMode] = useState<ViewMode>(() => savedState().mode);
+	const [columns, setColumns] = useState<ColumnSettings>(() => savedState().columns);
 	// Where the view starts and the Home button goes: the workspace folder, else the home directory.
 	const [home, setHome] = useState<{ uri: string; isWorkspace: boolean } | null>(null);
 	const [currentUri, setCurrentUri] = useState<string>("");
@@ -57,8 +63,8 @@ export function App() {
 	const expandedRef = useRef<ReadonlySet<string>>(new Set());
 
 	useEffect(() => {
-		vscode.setState({ mode });
-	}, [mode]);
+		vscode.setState({ mode, columns });
+	}, [mode, columns]);
 
 	const readDirectory = useCallback((uri: string) => {
 		const id = ++requestIdRef.current;
@@ -83,16 +89,26 @@ export function App() {
 		if (parentUri) navigate(parentUri);
 	}, [parentUri, navigate]);
 
-	const openFile = useCallback((uri: string) => {
-		vscode.postMessage({ type: "openFile", uri });
-	}, []);
-
 	const refresh = useCallback(() => {
 		if (currentUri) {
 			readDirectory(currentUri);
 		}
 		for (const uri of expandedRef.current) loadChildren(uri);
 	}, [currentUri, readDirectory, loadChildren]);
+
+	// What the list asks of the backend. Created, renamed, duplicated, and deleted entries show up
+	// when the backend then reports their folder changed.
+	const actions: FileActions = useMemo(
+		() => ({
+			open: (uri, toSide) => vscode.postMessage({ type: "openFile", uri, toSide: toSide === true }),
+			rename: (uri, newName) => vscode.postMessage({ type: "rename", uri, newName }),
+			create: (parentUri, name, kind) =>
+				vscode.postMessage({ type: "create", parentUri, name, kind }),
+			run: (action: FileAction, uri) => vscode.postMessage({ type: "fileAction", action, uri }),
+			refresh,
+		}),
+		[refresh],
+	);
 
 	// Loads each folder the tree newly expanded (again, if it was loaded before: it may have
 	// changed while collapsed and unwatched), and watches the expanded ones.
@@ -210,9 +226,11 @@ export function App() {
 				sortColumn={sortColumn}
 				sortDirection={sortDirection}
 				onSort={handleSort}
+				columns={columns}
+				onColumnsChange={setColumns}
 				onNavigate={navigate}
 				onNavigateUp={navigateUp}
-				onOpenFile={openFile}
+				actions={actions}
 			/>
 		</div>
 	);
