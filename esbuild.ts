@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import * as esbuild from "esbuild";
 import tailwindPlugin from "esbuild-plugin-tailwindcss";
+import { writeThirdPartyNotices } from "./thirdPartyNotices";
 
 const production = process.argv.includes("--production");
 const watch = process.argv.includes("--watch");
@@ -56,16 +57,22 @@ async function main() {
 		});
 	} else {
 		const results = await Promise.all(
-			[extensionConfig, webviewConfig].map((config) => esbuild.build({ ...config, metafile })),
+			[extensionConfig, webviewConfig].map((config) =>
+				esbuild.build({ ...config, metafile: metafile || production }),
+			),
 		);
+		const merged: esbuild.Metafile = { inputs: {}, outputs: {} };
+		for (const { metafile: meta } of results) {
+			Object.assign(merged.inputs, meta?.inputs);
+			Object.assign(merged.outputs, meta?.outputs);
+		}
 		if (metafile) {
-			const merged: esbuild.Metafile = { inputs: {}, outputs: {} };
-			for (const { metafile: meta } of results) {
-				Object.assign(merged.inputs, meta?.inputs);
-				Object.assign(merged.outputs, meta?.outputs);
-			}
 			await writeFile("dist/meta.json", JSON.stringify(merged));
 			console.log("Wrote dist/meta.json");
+		}
+		// Production builds are what ship, so regenerate the notices from what they bundled.
+		if (production) {
+			await writeThirdPartyNotices(merged, "ThirdPartyNotices.txt");
 		}
 	}
 }
