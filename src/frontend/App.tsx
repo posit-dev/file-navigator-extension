@@ -1,11 +1,13 @@
-import { CornerLeftUp, House, List, ListTree, RefreshCw } from "lucide-react";
+import { CornerLeftUp, Ellipsis, House, RefreshCw } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 import type { FileAction } from "../protocol";
 import { Breadcrumb } from "./Breadcrumb";
-import { type ColumnSettings, parseColumnSettings } from "./columns";
-import { DirectoryView, type FileActions } from "./DirectoryView";
+import { type ColumnSettings, columnMenuItems, parseColumnSettings } from "./columns";
+import { viewMenu } from "./contextMenus";
+import { DirectoryView, type DirectoryViewHandle, type FileActions } from "./DirectoryView";
 import { FilterInput } from "./FilterInput";
+import { Menu } from "./Menu";
 import { ToolbarButton } from "./ToolbarButton";
 import type {
 	BreadcrumbSegment,
@@ -14,6 +16,7 @@ import type {
 	SortDirection,
 	ViewMode,
 } from "./types";
+import { ViewModeToggle } from "./ViewModeToggle";
 
 declare function acquireVsCodeApi(): {
 	postMessage(msg: unknown): void;
@@ -45,8 +48,8 @@ export function App() {
 	const [saved] = useState(savedState);
 	const [mode, setMode] = useState<ViewMode>(saved.mode);
 	const [columns, setColumns] = useState<ColumnSettings>(saved.columns);
-	const [foldersFirst] = useState<boolean>(saved.foldersFirst);
-	const [showHidden] = useState<boolean>(saved.showHidden);
+	const [foldersFirst, setFoldersFirst] = useState<boolean>(saved.foldersFirst);
+	const [showHidden, setShowHidden] = useState<boolean>(saved.showHidden);
 	// Where the view starts and the Home button goes: the workspace folder, else the home directory.
 	const [home, setHome] = useState<{ uri: string; isWorkspace: boolean } | null>(null);
 	const [currentUri, setCurrentUri] = useState<string>("");
@@ -63,6 +66,10 @@ export function App() {
 	const [loading, setLoading] = useState(true);
 	const [sortColumn, setSortColumn] = useState<SortColumn>("name");
 	const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+	// The "…" menu's position, and the button to give focus back to when it closes.
+	const [menu, setMenu] = useState<{ x: number; y: number; fromKeyboard: boolean } | null>(null);
+	const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+	const directoryViewRef = useRef<DirectoryViewHandle>(null);
 	const requestIdRef = useRef(0);
 	const currentUriRef = useRef(currentUri);
 	currentUriRef.current = currentUri;
@@ -212,19 +219,26 @@ export function App() {
 					<House className="size-3.5" />
 				</ToolbarButton>
 				<Breadcrumb segments={breadcrumbs} onNavigate={navigate} />
-				<ToolbarButton
-					label={mode === "flat" ? "Show as tree" : "Show as list"}
-					onClick={() => setMode((m) => (m === "flat" ? "tree" : "flat"))}
-					pressed={mode === "tree"}
-				>
-					{mode === "flat" ? <ListTree className="size-3.5" /> : <List className="size-3.5" />}
-				</ToolbarButton>
+				<ViewModeToggle mode={mode} onChange={setMode} />
 				<ToolbarButton label="Refresh" onClick={refresh}>
 					<RefreshCw className="size-3" />
+				</ToolbarButton>
+				<ToolbarButton
+					label="More Actions…"
+					onClick={(e) => {
+						const button = e.currentTarget;
+						menuButtonRef.current = button;
+						const r = button.getBoundingClientRect();
+						// A click from Enter or Space has no pointer position (detail 0).
+						setMenu({ x: r.left, y: r.bottom + 2, fromKeyboard: e.detail === 0 });
+					}}
+				>
+					<Ellipsis className="size-3.5" />
 				</ToolbarButton>
 			</div>
 			{error && <div className="px-2 py-1 text-[0.9em] text-error-foreground">{error}</div>}
 			<DirectoryView
+				ref={directoryViewRef}
 				mode={mode}
 				currentUri={currentUri}
 				hasParent={parentUri !== null}
@@ -244,6 +258,28 @@ export function App() {
 				onNavigateUp={navigateUp}
 				actions={actions}
 			/>
+			{menu && (
+				<Menu
+					label="View options"
+					x={menu.x}
+					y={menu.y}
+					focusFirst={menu.fromKeyboard}
+					sections={viewMenu({
+						mode,
+						onModeChange: setMode,
+						columnItems: columnMenuItems(columns, setColumns),
+						foldersFirst,
+						onFoldersFirstChange: setFoldersFirst,
+						showHidden,
+						onShowHiddenChange: setShowHidden,
+						collapseAll: () => directoryViewRef.current?.collapseAll(),
+					})}
+					onClose={() => {
+						setMenu(null);
+						menuButtonRef.current?.focus({ preventScroll: true });
+					}}
+				/>
+			)}
 		</div>
 	);
 }

@@ -107,12 +107,11 @@ type ToolbarButtonProps = {
 	label: string;
 	onClick: (event: MouseEvent<HTMLButtonElement>) => void;
 	disabled?: boolean;
-	pressed?: boolean;
 	children: ReactNode;
 };
 
 /** An icon button with a tooltip (see `useTooltip`); hides it on click and on Escape. */
-export function ToolbarButton({ label, onClick, disabled, pressed, children }: ToolbarButtonProps) {
+export function ToolbarButton({ label, onClick, disabled, children }: ToolbarButtonProps) {
 	const { triggerProps, hide, tooltip } = useTooltip(label);
 
 	return (
@@ -128,7 +127,6 @@ export function ToolbarButton({ label, onClick, disabled, pressed, children }: T
 				}}
 				disabled={disabled}
 				aria-label={label}
-				aria-pressed={pressed}
 				onKeyDown={(e) => e.key === "Escape" && hide()}
 			>
 				{children}

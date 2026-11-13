@@ -1,7 +1,8 @@
-// The list's context menus: for an entry, and for the empty space below the rows (the folder).
+// The list's menus: context menus for an entry and for the empty space below the rows (the
+// folder), and the toolbar's "…" menu.
 // Labels and shortcut hints follow the OS, as VS Code's own menus do.
 import type { FileAction } from "../protocol";
-import type { MenuSection } from "./Menu";
+import type { MenuItem, MenuSection } from "./Menu";
 import type { DirectoryEntry, ViewMode } from "./types";
 
 const ua = navigator.userAgent;
@@ -139,5 +140,61 @@ export function folderMenu(folderUri: string, c: MenuCommands): MenuSection[] {
 			{ id: "copyRelativePath", label: "Copy Relative Path", onSelect: run("copyRelativePath") },
 		],
 		[{ id: "refresh", label: "Refresh", onSelect: c.refresh }],
+	];
+}
+
+/** What the toolbar's "…" menu shows and does. */
+export type ViewMenuOptions = {
+	mode: ViewMode;
+	onModeChange: (mode: ViewMode) => void;
+	/** The column items, from `columnMenuItems`. */
+	columnItems: MenuItem[];
+	foldersFirst: boolean;
+	onFoldersFirstChange: (value: boolean) => void;
+	showHidden: boolean;
+	onShowHiddenChange: (value: boolean) => void;
+	collapseAll: () => void;
+};
+
+/** The toolbar's "…" menu: view mode, columns, list options, and tree actions. Flat, no submenus. */
+export function viewMenu(o: ViewMenuOptions): MenuSection[] {
+	return [
+		[
+			{
+				id: "viewList",
+				label: "View as List",
+				checked: o.mode === "flat",
+				onSelect: () => o.onModeChange("flat"),
+			},
+			{
+				id: "viewTree",
+				label: "View as Tree",
+				checked: o.mode === "tree",
+				onSelect: () => o.onModeChange("tree"),
+			},
+		],
+		o.columnItems,
+		[
+			{
+				id: "foldersFirst",
+				label: "Folders First",
+				checked: o.foldersFirst,
+				onSelect: () => o.onFoldersFirstChange(!o.foldersFirst),
+			},
+			{
+				id: "showHidden",
+				label: "Show Hidden Files",
+				checked: o.showHidden,
+				onSelect: () => o.onShowHiddenChange(!o.showHidden),
+			},
+		],
+		[
+			{
+				id: "collapseAll",
+				label: "Collapse All Folders",
+				disabled: o.mode === "flat",
+				onSelect: o.collapseAll,
+			},
+		],
 	];
 }
