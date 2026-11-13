@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Type checks, lints, builds, and packages the .vsix.
+      - run: npm run package
+      # The production build regenerates ThirdPartyNotices.txt from the bundle; fail if the committed copy is stale.
+      - name: Check third-party notices are up to date
+        run: git diff --exit-code ThirdPartyNotices.txt
+      - uses: actions/upload-artifact@v5
+        with:
+          name: file-navigator-vsix
+          path: "*.vsix"
+          if-no-files-found: error
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # VS Code needs a display, so run it under a virtual X server.
+      - run: xvfb-run -a npm test
