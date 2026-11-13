@@ -29,12 +29,27 @@ const NO_CHILDREN: ReadonlyMap<string, DirectoryEntry[]> = new Map();
 /** The list's first row when the directory has a parent; activating it goes up. */
 const PARENT_PATH = "..";
 
-// The parent row's icon: Lucide's corner-left-up, as a symbol the tree can use.
+// Symbols the tree can use: the parent row's icon (Lucide's corner-left-up) and the folder icon
+// (Lucide's folder) that replaces the chevron in flat mode.
 const SPRITE = `<svg aria-hidden="true" width="0" height="0">
 <symbol id="fn-parent" viewBox="0 0 24 24">
 <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14 9 9 4 4 9M20 20h-7a4 4 0 0 1-4-4V4"/>
 </symbol>
+<symbol id="fn-folder" viewBox="0 0 24 24">
+<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+</symbol>
 </svg>`;
+
+// The tree's icon options. Flat mode has no expanding, so folders get a folder icon, not a chevron.
+function treeIcons(folderIcons: boolean) {
+	return {
+		set: "complete",
+		colored: true,
+		spriteSheet: SPRITE,
+		byFileName: { [PARENT_PATH]: "fn-parent" },
+		...(folderIcons ? { remap: { "file-tree-icon-chevron": "fn-folder" } } : {}),
+	} as const;
+}
 
 /** What the list asks the backend to do. URIs are always ones the backend sent. */
 export type FileActions = {
@@ -132,14 +147,11 @@ export function DirectoryView({
 	const { model } = useFileTree({
 		paths: [],
 		itemHeight: ROW_HEIGHT,
-		icons: {
-			set: "complete",
-			colored: true,
-			spriteSheet: SPRITE,
-			byFileName: { [PARENT_PATH]: "fn-parent" },
-		},
+		icons: treeIcons(mode === "flat"),
 		fileTreeSearchMode: "hide-non-matches",
-		unsafeCSS: COLUMN_ROW_CSS,
+		// The tree rotates collapsed chevrons; keep the folder icon upright.
+		unsafeCSS: `${COLUMN_ROW_CSS}
+[data-item-section="icon"] > svg:has(use[href="#fn-folder"]) { transform: none; }`,
 		renaming: {
 			canRename: (item) => item.path !== PARENT_PATH,
 			onRename: (event) => onRenameRef.current(event.sourcePath, event.destinationPath),
@@ -222,6 +234,9 @@ export function DirectoryView({
 			}),
 		[model, syncExpanded, isRenaming],
 	);
+
+	// The tree's options are fixed at creation, so swap the icons when the mode changes.
+	useEffect(() => model.setIcons(treeIcons(mode === "flat")), [model, mode]);
 
 	// Rebuilds the rows. Expanded folders stay expanded; after moving the root up, the folder
 	// just left is expanded too, so it shows where you came from. If the list had keyboard focus,
