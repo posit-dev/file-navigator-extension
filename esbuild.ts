@@ -32,6 +32,10 @@ const webviewConfig: esbuild.BuildOptions = {
 	sourcesContent: true,
 	external: ["vscode-webview"],
 	jsx: "automatic",
+	// Run React code (ours, @pierre/trees/react, lucide-react) on Preact, which
+	// @pierre/trees already bundles to draw the tree. Subpaths follow the alias:
+	// react/jsx-runtime -> preact/compat/jsx-runtime, react-dom/client -> preact/compat/client.
+	alias: { react: "preact/compat", "react-dom": "preact/compat" },
 	plugins: [tailwindPlugin()],
 };
 
