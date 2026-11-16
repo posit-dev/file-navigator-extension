@@ -14,6 +14,16 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "File Navigator",
+      "properties": {
+        "fileNavigator.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the File Navigator in the activity bar. When off, the view and its activity bar icon are hidden."
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -28,7 +38,8 @@
         {
           "type": "webview",
           "id": "file-navigator.directoryView",
-          "name": "File Navigator"
+          "name": "File Navigator",
+          "when": "config.fileNavigator.enabled"
         }
       ]
     }

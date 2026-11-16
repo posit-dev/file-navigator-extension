@@ -121,4 +121,5 @@ Extension → Webview:
 - **URI-first protocol**: supports `file://`, `vscode-remote://`, UNC paths, any VS Code filesystem provider
 - **Backend-authoritative navigation**: avoids cross-platform path bugs; handles non-file schemes correctly
 - **Per-directory watchers**: only watches the viewed directory and expanded tree folders; create/delete events only (no change events since we display size/mtime from the initial stat, not live updates). Manual refresh as fallback.
+- **On/off setting**: `fileNavigator.enabled` (default `true`) is the view's `when` clause in `package.json`, so turning it off hides the view and its activity bar container with no code involved. Hiding the view disposes the webview, which disposes its watchers. Posit Workbench is expected to override the default to `false`.
 - **Self-contained**: no dependencies on other packages in this monorepo

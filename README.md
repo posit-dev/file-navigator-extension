@@ -17,6 +17,10 @@ A VS Code / Positron extension that provides a directory browser in a sidebar we
 
 The view mode is remembered when the view is hidden and shown again.
 
+## Settings
+
+- `fileNavigator.enabled` (default `true`): show the File Navigator in the activity bar. When it is `false`, the view and its activity bar icon are hidden. The change takes effect at once, with no reload. A product that bundles the extension can turn it off by default with `configurationDefaults`.
+
 ## Development
 
 Run `npm install` first.
