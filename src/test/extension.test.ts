@@ -20,4 +20,9 @@ suite("Extension", () => {
 		await extension.activate();
 		assert.strictEqual(extension.isActive, true);
 	});
+
+	test("the view is enabled by default", () => {
+		const setting = vscode.workspace.getConfiguration("fileNavigator").inspect<boolean>("enabled");
+		assert.strictEqual(setting?.defaultValue, true);
+	});
 });
