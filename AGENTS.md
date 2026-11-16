@@ -7,6 +7,7 @@ A VS Code / Positron extension that provides a directory browser in a sidebar we
 ```
 temp/file-navigator/
 ├── esbuild.ts              # Build: two contexts (Node extension + browser webview)
+├── thirdPartyNotices.ts    # Production build writes ThirdPartyNotices.txt from the bundled packages
 ├── tailwind.config.ts
 ├── tsconfig.json            # Composite: references server + client tsconfigs
 ├── tsconfig.server.json     # Backend (extension host, Node)
