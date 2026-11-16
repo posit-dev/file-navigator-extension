@@ -10,5 +10,5 @@
     "types": ["vscode", "node"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/frontend"]
+  "exclude": ["node_modules", "dist", "src/frontend", "src/test"]
 }
