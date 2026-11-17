@@ -5,7 +5,7 @@ A VS Code / Positron extension that provides a directory browser in a sidebar we
 ## Structure
 
 ```
-temp/file-navigator/
+file-navigator-extension/
 ├── esbuild.ts              # Build: two contexts (Node extension + browser webview)
 ├── thirdPartyNotices.ts    # Production build writes ThirdPartyNotices.txt from the bundled packages
 ├── tailwind.config.ts
@@ -15,6 +15,8 @@ temp/file-navigator/
 ├── tsconfig.test.json       # Tests (CommonJS, compiled to out/test)
 ├── .vscode-test.mjs         # @vscode/test-cli config: which compiled tests to run, Mocha options
 ├── .github/workflows/ci.yml # CI: package job (types, lint, build, .vsix) and test job
+├── README.md                # For users: shown on the Open VSX page and packaged in the .vsix
+├── CONTRIBUTING.md          # For developers: building, testing, packaging, architecture overview
 ├── images/
 │   └── icon.svg             # Activity bar icon
 └── src/
@@ -50,6 +52,8 @@ temp/file-navigator/
 - Package: `npm run package`
 
 CI (`.github/workflows/ci.yml`) runs on pushes to `main` and on pull requests: one job runs `npm run package`, fails if the regenerated `ThirdPartyNotices.txt` differs from the committed one, and uploads the `.vsix`; the other runs `npm test` under `xvfb-run`.
+
+[CONTRIBUTING.md](CONTRIBUTING.md) has the developer guide: how to try the extension in Positron, packaging, `ThirdPartyNotices.txt`, and bundling in another product. Keep README.md for users; developer content goes in CONTRIBUTING.md.
 
 ## Architecture
 
