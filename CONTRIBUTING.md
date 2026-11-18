@@ -34,7 +34,7 @@ CI (`.github/workflows/ci.yml`) runs on pushes to `main` and on pull requests. O
 
 ## Packaging
 
-`npm run package` writes `file-navigator-<version>.vsix` to the project root. It stops if the type check or lint fails. The `.vsix` holds only the bundled `dist/` (without source maps), the icon, the README, the LICENSE, `ThirdPartyNotices.txt`, and the package metadata; `.vscodeignore` controls this. To install it:
+`npm run package` writes `file-navigator-<version>.vsix` to the project root. It stops if the type check or lint fails. The `.vsix` holds only the bundled `dist/` (without source maps), the icons, the README, the CHANGELOG, the LICENSE, `ThirdPartyNotices.txt`, and the package metadata; `.vscodeignore` controls this. To install it:
 
 ```sh
 positron --install-extension file-navigator-0.1.0.vsix   # or: code --install-extension ...
