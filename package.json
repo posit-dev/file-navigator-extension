@@ -2,14 +2,27 @@
   "name": "file-navigator",
   "publisher": "posit",
   "displayName": "File Navigator",
-  "description": "Directory browser sidebar for navigating the filesystem.",
+  "description": "Directory browser sidebar for navigating the filesystem",
   "version": "0.1.0",
   "license": "MIT",
+  "icon": "images/icon.png",
+  "homepage": "https://github.com/posit-dev/file-navigator-extension",
+  "bugs": {
+    "url": "https://github.com/posit-dev/file-navigator-extension/issues"
+  },
   "engines": {
     "vscode": "^1.100.0"
   },
   "categories": [
     "Other"
+  ],
+  "keywords": [
+    "file browser",
+    "file explorer",
+    "files",
+    "directory",
+    "folder",
+    "positron"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
@@ -39,6 +52,7 @@
           "type": "webview",
           "id": "file-navigator.directoryView",
           "name": "File Navigator",
+          "icon": "images/icon.svg",
           "when": "config.fileNavigator.enabled"
         }
       ]
@@ -56,7 +70,7 @@
     "lint": "oxlint -c .oxlintrc.json src"
   },
   "devDependencies": {
-    "@pierre/trees": "1.0.0-beta.6",
+    "@pierre/trees": "1.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.20.5",
     "@types/react": "^19.1.2",

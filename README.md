@@ -1,10 +1,10 @@
-# File Navigator <a href="https://posit.co"><img src="https://cdn.jsdelivr.net/gh/posit-dev/supported-by-posit/img/badge.png" width="100" alt="Supported by Posit" align="right" /></a>
+# File Navigator
 
 File Navigator is a file browser for [Positron](https://positron.posit.co/) and VS Code. It adds a view to the activity bar that shows the files in a folder with their size and date modified. You can browse to any folder on your computer or remote host, not only the folders in your workspace.
 
 ## Features
 
-- **List or tree**: show one folder at a time as a list, or show a tree that opens folders in place. Use the List | Tree toggle in the toolbar to change between the two.
+- **List or tree**: show one folder at a time as a list, or show a tree that opens folders in place. Use the List and Tree buttons in the toolbar to change between the two.
 - **Go anywhere**: use the Up button to go to the parent folder, and the Home button to go back to your workspace folder (or your home folder, when no workspace is open). Click a folder in the path bar to go to it, or click the name of the current folder to choose from all of its parent folders. In the tree, double-click a folder to make it the root.
 - **Size and date modified**: sort by name, size, or date modified with the column headers. Drag a column edge to change its width. Right-click a column header to show or hide columns. When the view is narrow, columns hide automatically.
 - **Filter**: type in the filter box to show only the files that match.
@@ -34,6 +34,8 @@ Use the arrow keys to move between files, and type the start of a name to jump t
 ## Getting help
 
 If you find a bug or have an idea for a feature, open an issue in the [GitHub repository](https://github.com/posit-dev/file-navigator-extension/issues). To contribute, see [CONTRIBUTING.md](https://github.com/posit-dev/file-navigator-extension/blob/main/CONTRIBUTING.md).
+
+<a href="https://opensource.posit.co"><img src="https://cdn.jsdelivr.net/gh/posit-dev/supported-by-posit/img/badge.png" width="100" alt="Supported by Posit" /></a>
 
 ## License
 

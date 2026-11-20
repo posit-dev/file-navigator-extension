@@ -17,8 +17,11 @@ file-navigator-extension/
 ├── .github/workflows/ci.yml # CI: package job (types, lint, build, .vsix) and test job
 ├── README.md                # For users: shown on the Open VSX page and packaged in the .vsix
 ├── CONTRIBUTING.md          # For developers: building, testing, packaging, architecture overview
+├── CHANGELOG.md             # Release notes, shown on the Open VSX page and packaged in the .vsix
 ├── images/
-│   └── icon.svg             # Activity bar icon
+│   ├── icon.svg             # Activity bar icon (Lucide folder-up)
+│   ├── icon-marketplace.svg # Source for icon.png: the same glyph in Posit Blue
+│   └── icon.png             # Marketplace icon (256×256): rsvg-convert -w 256 -h 256 images/icon-marketplace.svg -o images/icon.png
 └── src/
     ├── extension.ts         # Backend: WebviewViewProvider, message handling, file watcher, file operations
     ├── protocol.ts          # Types shared by backend and frontend (DirectoryEntry, BreadcrumbSegment, FileAction)
