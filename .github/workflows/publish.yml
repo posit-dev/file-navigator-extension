@@ -39,7 +39,7 @@ jobs:
         run: git diff --exit-code ThirdPartyNotices.txt
       - name: Publish to Open VSX
         env:
-          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
         run: npx --yes ovsx@1.4.0 publish file-navigator-*.vsix
       - name: Attach the .vsix to the release
         env:

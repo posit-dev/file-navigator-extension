@@ -15,7 +15,7 @@ file-navigator-extension/
 ├── tsconfig.test.json       # Tests (CommonJS, compiled to out/test)
 ├── .vscode-test.mjs         # @vscode/test-cli config: which compiled tests to run, Mocha options
 ├── .github/workflows/ci.yml # CI: package job (types, lint, build, .vsix) and test job
-├── .github/workflows/publish.yml # On a published GitHub release: package, publish to Open VSX (OVSX_PAT secret), attach the .vsix
+├── .github/workflows/publish.yml # On a published GitHub release: package, publish to Open VSX (OPEN_VSX_TOKEN secret), attach the .vsix
 ├── README.md                # For users: shown on the Open VSX page and packaged in the .vsix
 ├── CONTRIBUTING.md          # For developers: building, testing, packaging, architecture overview
 ├── CHANGELOG.md             # Release notes, shown on the Open VSX page and packaged in the .vsix

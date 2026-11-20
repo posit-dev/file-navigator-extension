@@ -46,7 +46,7 @@ The production build also writes `ThirdPartyNotices.txt` from the packages in th
 
 ## Releasing
 
-`.github/workflows/publish.yml` publishes the extension to [Open VSX](https://open-vsx.org/extension/posit/file-navigator) when you publish a GitHub release. It needs an Open VSX access token for the `posit` namespace in the `OVSX_PAT` repository secret.
+`.github/workflows/publish.yml` publishes the extension to [Open VSX](https://open-vsx.org/extension/posit/file-navigator) when you publish a GitHub release. It needs an Open VSX access token for the `posit` namespace in the `OPEN_VSX_TOKEN` repository secret, the same as the Shiny and Air extensions.
 
 1. Change `version` in `package.json` and add a section to `CHANGELOG.md`. Merge these changes to `main`.
 2. Make a GitHub release from `main` with the tag `v<version>`, for example `v0.1.0`.
