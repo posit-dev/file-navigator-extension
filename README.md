@@ -24,7 +24,7 @@ Use the arrow keys to move between files, and type the start of a name to jump t
 | Delete | <kbd>Cmd+Backspace</kbd> | <kbd>Delete</kbd> |
 | Open to the side | <kbd>Ctrl+Enter</kbd> | <kbd>Ctrl+Enter</kbd> |
 | Copy path | <kbd>Option+Cmd+C</kbd> | <kbd>Shift+Alt+C</kbd> |
-| Copy relative path | <kbd>Option+Shift+Cmd+C</kbd> | |
+| Copy relative path | <kbd>Option+Shift+Cmd+C</kbd> | Menu only |
 | Reveal in file manager | <kbd>Option+Cmd+R</kbd> | <kbd>Shift+Alt+R</kbd> |
 
 ## Settings

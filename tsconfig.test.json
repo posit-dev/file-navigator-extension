@@ -6,8 +6,8 @@
     "declarationMap": false,
     "module": "node16",
     "moduleResolution": "node16",
-    "rootDir": "src/test",
-    "outDir": "out/test",
+    "rootDir": "src",
+    "outDir": "out",
     "lib": ["ES2022"],
     "types": ["vscode", "node", "mocha"]
   },

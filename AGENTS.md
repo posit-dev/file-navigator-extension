@@ -12,7 +12,7 @@ file-navigator-extension/
 ├── tsconfig.json            # Composite: references server + client tsconfigs
 ├── tsconfig.server.json     # Backend (extension host, Node)
 ├── tsconfig.client.json     # Frontend (webview, React + JSX)
-├── tsconfig.test.json       # Tests (CommonJS, compiled to out/test)
+├── tsconfig.test.json       # Tests (CommonJS, compiled to out/; also compiles the frontend modules they import)
 ├── .vscode-test.mjs         # @vscode/test-cli config: which compiled tests to run, Mocha options
 ├── .github/workflows/ci.yml # CI: package job (types, lint, build, .vsix) and test job
 ├── README.md                # For users: shown on the Open VSX page and packaged in the .vsix
@@ -26,7 +26,9 @@ file-navigator-extension/
     ├── extension.ts         # Backend: WebviewViewProvider, message handling, file watcher, file operations
     ├── protocol.ts          # Types shared by backend and frontend (DirectoryEntry, BreadcrumbSegment, FileAction)
     ├── test/
-    │   └── extension.test.ts # Integration tests (Mocha TDD UI, run inside VS Code)
+    │   ├── extension.test.ts # Integration tests (Mocha TDD UI, run inside VS Code)
+    │   ├── treeLayout.test.ts # Unit tests for layoutTree (sorting, nesting, hidden files)
+    │   └── format.test.ts   # Unit tests for size and date formatting
     └── frontend/
         ├── main.tsx         # React entry point
         ├── App.tsx          # Root component: state, view mode, message dispatch, saved webview state

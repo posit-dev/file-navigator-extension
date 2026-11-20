@@ -28,7 +28,7 @@ After you rebuild, run _Developer: Reload Window_ in that window.
 npm test
 ```
 
-This builds the extension, compiles `src/test` to `out/`, and runs the tests inside VS Code with `@vscode/test-cli` (see `.vscode-test.mjs`). The first run downloads VS Code into `.vscode-test/`.
+This builds the extension, compiles `src/test` to `out/`, and runs the tests inside VS Code with `@vscode/test-cli` (see `.vscode-test.mjs`). The tests in `src/test` can import the pure frontend modules, such as `treeLayout.ts` and `format.ts`, to test them directly. The first run downloads VS Code into `.vscode-test/`.
 
 CI (`.github/workflows/ci.yml`) runs on pushes to `main` and on pull requests. One job runs `npm run package`, fails if the regenerated `ThirdPartyNotices.txt` is different from the committed one, and uploads the `.vsix`. The other job runs `npm test`.
 
