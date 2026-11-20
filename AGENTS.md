@@ -15,6 +15,7 @@ file-navigator-extension/
 ├── tsconfig.test.json       # Tests (CommonJS, compiled to out/; also compiles the frontend modules they import)
 ├── .vscode-test.mjs         # @vscode/test-cli config: which compiled tests to run, Mocha options
 ├── .github/workflows/ci.yml # CI: package job (types, lint, build, .vsix) and test job
+├── .github/workflows/publish.yml # On a published GitHub release: package, publish to Open VSX (OPEN_VSX_TOKEN secret), attach the .vsix
 ├── README.md                # For users: shown on the Open VSX page and packaged in the .vsix
 ├── CONTRIBUTING.md          # For developers: building, testing, packaging, architecture overview
 ├── CHANGELOG.md             # Release notes, shown on the Open VSX page and packaged in the .vsix
@@ -56,7 +57,7 @@ file-navigator-extension/
 - Test: `npm test` (builds, compiles `src/test` to `out/` with `tsconfig.test.json`, then runs `.vscode-test.mjs`; downloads VS Code into `.vscode-test/` on first run)
 - Package: `npm run package`
 
-CI (`.github/workflows/ci.yml`) runs on pushes to `main` and on pull requests: one job runs `npm run package`, fails if the regenerated `ThirdPartyNotices.txt` differs from the committed one, and uploads the `.vsix`; the other runs `npm test` under `xvfb-run`.
+CI (`.github/workflows/ci.yml`) runs on pushes to `main` and on pull requests: one job runs `npm run package`, fails if the regenerated `ThirdPartyNotices.txt` differs from the committed one, and uploads the `.vsix`; the other runs `npm test` under `xvfb-run`. Publishing a GitHub release tagged `v<version>` (it must match `package.json`) runs `.github/workflows/publish.yml`, which publishes to Open VSX; see the Releasing section of CONTRIBUTING.md.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) has the developer guide: how to try the extension in Positron, packaging, `ThirdPartyNotices.txt`, and bundling in another product. Keep README.md for users; developer content goes in CONTRIBUTING.md.
 

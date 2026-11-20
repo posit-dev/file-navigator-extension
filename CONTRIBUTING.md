@@ -44,6 +44,14 @@ esbuild bundles everything, so all packages are dev dependencies and the `.vsix`
 
 The production build also writes `ThirdPartyNotices.txt` from the packages in the bundle. If you add, remove, or update a bundled dependency, commit the regenerated file.
 
+## Releasing
+
+`.github/workflows/publish.yml` publishes the extension to [Open VSX](https://open-vsx.org/extension/posit/file-navigator) when you publish a GitHub release. It needs an Open VSX access token for the `posit` namespace in the `OPEN_VSX_TOKEN` repository secret, the same as the Shiny and Air extensions.
+
+1. Change `version` in `package.json` and add a section to `CHANGELOG.md`. Merge these changes to `main`.
+2. Make a GitHub release from `main` with the tag `v<version>`, for example `v0.1.0`.
+3. The workflow makes sure that the tag and the `package.json` version are the same. Then it packages the `.vsix`, publishes it to Open VSX, and attaches it to the release.
+
 ## Bundling in another product
 
 A product that bundles the extension can hide the view by default with `configurationDefaults`:
