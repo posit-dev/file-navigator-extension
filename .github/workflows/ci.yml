@@ -18,8 +18,8 @@ jobs:
     name: Build and package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -29,7 +29,7 @@ jobs:
       # The production build regenerates ThirdPartyNotices.txt from the bundle; fail if the committed copy is stale.
       - name: Check third-party notices are up to date
         run: git diff --exit-code ThirdPartyNotices.txt
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: file-navigator-vsix
           path: "*.vsix"
@@ -39,8 +39,8 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
