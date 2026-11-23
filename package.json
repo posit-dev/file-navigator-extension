@@ -3,7 +3,7 @@
   "publisher": "posit",
   "displayName": "File Navigator",
   "description": "Directory browser sidebar for navigating the filesystem",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "icon": "images/icon.png",
   "homepage": "https://github.com/posit-dev/file-navigator-extension",
